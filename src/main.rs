@@ -145,6 +145,7 @@ fn setup(
         // .render(ParticleTextureModifier {
         //     texture: asset_server.load("textures/cloud.png"),
         // })
+        .render(BillboardModifier)
         .render(SizeOverLifetimeModifier {
             gradient: Gradient::constant(Vec2::splat(0.05)),
         })
