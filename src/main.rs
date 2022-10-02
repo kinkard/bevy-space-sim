@@ -1,9 +1,7 @@
 use bevy::prelude::*;
-use bevy_hanabi::*;
 use bevy_rapier3d::prelude::*;
 
-pub mod lifetime;
-use lifetime::*;
+pub mod projectile;
 
 fn main() {
     App::new()
@@ -14,12 +12,10 @@ fn main() {
             ..default()
         })
         .add_plugin(RapierDebugRenderPlugin::default())
-        .add_plugin(HanabiPlugin)
+        .add_plugin(projectile::ProjectilePlugin)
         .add_startup_system(setup)
         .add_system(move_camera)
         .add_system(spawn_projectile)
-        .add_system(burst_on_collision)
-        .add_system(lifetime)
         .add_system(bevy::window::close_on_esc)
         .run();
 }
@@ -28,7 +24,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut effects: ResMut<Assets<EffectAsset>>,
     asset_server: Res<AssetServer>,
 ) {
     // root UI node that covers all screen
@@ -120,38 +115,6 @@ fn setup(
         transform: Transform::from_xyz(0.0, 0.0, 10.0),
         ..default()
     });
-
-    // Create a particle spawner
-    let mut gradient = Gradient::new();
-    gradient.add_key(0.0, Vec4::splat(1.0));
-    gradient.add_key(0.1, Vec4::new(1.0, 1.0, 0.0, 1.0));
-    gradient.add_key(0.4, Vec4::new(1.0, 0.0, 0.0, 1.0));
-    gradient.add_key(1.0, Vec4::splat(0.0));
-
-    let effect = effects.add(
-        EffectAsset {
-            name: String::from("Impact burst"),
-            capacity: 32768,
-            spawner: Spawner::once(1024.0.into(), false),
-            ..default()
-        }
-        .init(PositionSphereModifier {
-            radius: 0.2,
-            speed: 5.0.into(),
-            dimension: ShapeDimension::Surface,
-            ..default()
-        })
-        .init(ParticleLifetimeModifier { lifetime: 2.0 })
-        // .render(ParticleTextureModifier {
-        //     texture: asset_server.load("textures/cloud.png"),
-        // })
-        .render(BillboardModifier)
-        .render(SizeOverLifetimeModifier {
-            gradient: Gradient::constant(Vec2::splat(0.05)),
-        })
-        .render(ColorOverLifetimeModifier { gradient }),
-    );
-    commands.spawn_bundle(ParticleEffectBundle::new(effect));
 }
 
 fn move_camera(
@@ -255,32 +218,33 @@ fn spawn_projectile(
             // velocity in a camera direction
             let velocity = transform.rotation * -Vec3::Z * 20.0;
 
-            // Create a small bouncing ball
             let radius = 0.1;
             commands
-                .spawn_bundle(PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::UVSphere {
-                        radius,
-                        sectors: 64,
-                        stacks: 32,
-                    })),
-                    material: materials.add(StandardMaterial {
-                        base_color: Color::rgb(1.0, 0.5, 0.5),
-                        unlit: true,
+                .spawn_bundle(projectile::ProjectileBundle {
+                    mesh_material: PbrBundle {
+                        mesh: meshes.add(Mesh::from(shape::UVSphere {
+                            radius,
+                            sectors: 64,
+                            stacks: 32,
+                        })),
+                        material: materials.add(StandardMaterial {
+                            base_color: Color::rgb(1.0, 0.5, 0.5),
+                            unlit: true,
+                            ..default()
+                        }),
+                        transform: Transform::from_translation(position),
                         ..default()
-                    }),
+                    },
+                    velocity: Velocity {
+                        linvel: velocity,
+                        ..default()
+                    },
+                    collider: Collider::ball(radius),
+                    lifetime: projectile::Lifetime(30.0),
+                    explosion: projectile::ExplosionEffect::Big,
                     ..default()
                 })
-                .insert(RigidBody::Dynamic)
-                .insert(Collider::ball(radius))
-                .insert(ActiveEvents::COLLISION_EVENTS)
                 .insert(Restitution::coefficient(0.7))
-                .insert(Lifetime(30.0))
-                .insert_bundle(TransformBundle::from(Transform::from_translation(position)))
-                .insert(Velocity {
-                    linvel: velocity,
-                    ..default()
-                })
                 .with_children(|children| {
                     children.spawn_bundle(PointLightBundle {
                         point_light: PointLight {
@@ -306,8 +270,10 @@ fn spawn_projectile(
 
             // Create a small bullet
             let radius = 0.02;
-            commands
-                .spawn_bundle(PbrBundle {
+
+            commands.spawn_bundle(projectile::ProjectileBundle {
+                collider: Collider::capsule_y(2.0 * radius, radius),
+                mesh_material: PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Capsule {
                         radius,
                         depth: 4.0 * radius,
@@ -319,42 +285,23 @@ fn spawn_projectile(
                         // exclude this material from shadows calculations
                         ..default()
                     }),
+                    transform: Transform {
+                        translation: position,
+                        rotation: transform.rotation
+                        // rotate `shape::Capsule` to to align with camera direction
+                            * Quat::from_rotation_x(std::f32::consts::PI * 0.5),
+                        scale: Vec3::ONE,
+                    },
                     ..default()
-                })
-                .insert(RigidBody::Dynamic)
-                .insert(Collider::capsule_y(2.0 * radius, radius))
-                .insert(Sensor)
-                .insert(ActiveEvents::COLLISION_EVENTS)
-                .insert_bundle(TransformBundle::from(Transform {
-                    translation: position,
-                    rotation: transform.rotation
-                        * Quat::from_rotation_x(std::f32::consts::PI * 0.5),
-                    scale: Vec3::ONE,
-                }))
-                .insert(Velocity {
+                },
+                velocity: Velocity {
                     linvel: velocity,
                     ..default()
-                })
-                .insert(Lifetime(10.0));
-        }
-    }
-}
-
-fn burst_on_collision(
-    //mut commands: Commands,
-    mut collision_events: EventReader<CollisionEvent>,
-    mut effect: Query<(&mut ParticleEffect, &mut Transform)>,
-    transforms: Query<&mut Transform, Without<ParticleEffect>>,
-) {
-    for collision_event in collision_events.iter() {
-        if let CollisionEvent::Started(_, entity, _) = collision_event {
-            if let Ok(transform) = transforms.get(*entity) {
-                let (mut effect, mut effect_transform) = effect.single_mut();
-                effect_transform.translation = transform.translation;
-                effect.maybe_spawner().unwrap().reset();
-            }
-
-            //commands.entity(*entity).despawn_recursive();
+                },
+                lifetime: projectile::Lifetime(10.0),
+                explosion: projectile::ExplosionEffect::Small,
+                ..default()
+            });
         }
     }
 }
