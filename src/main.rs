@@ -1,12 +1,18 @@
-use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(WireframePlugin)
+        .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+        .insert_resource(RapierConfiguration {
+            gravity: Vec3::ZERO, // disable gravity at all
+            ..default()
+        })
+        .add_plugin(RapierDebugRenderPlugin::default())
         .add_startup_system(setup)
         .add_system(move_camera)
+        .add_system(spawn_projectile)
         .add_system(bevy::window::close_on_esc)
         .run();
 }
@@ -16,10 +22,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-    mut wireframe_config: ResMut<WireframeConfig>,
 ) {
-    wireframe_config.global = true;
-
     // root UI node that covers all screen
     commands
         .spawn_bundle(NodeBundle {
@@ -43,6 +46,24 @@ fn setup(
             });
         });
 
+    // Space ship with a collision model, computed by V-HACD algorithm based on model shape
+    // N.B.: Due to async collider loading implementation and it's isolation from bevy,
+    // any `TransformBundle` will be applied only on a visual model, but not to the collider.
+    // Consider https://github.com/nicopap/bevy-scene-hook to use model's mesh once it is loaded or
+    // manually create a `ColliderBuilder::compound` to represent ship's collider.
+    let scene = asset_server.load("models/spaceship_v1.glb#Scene0");
+    let ship_collider = AsyncSceneCollider {
+        handle: scene.clone(),
+        shape: Some(ComputedColliderShape::ConvexDecomposition(
+            VHACDParameters::default(),
+        )),
+        named_shapes: bevy::utils::HashMap::default(),
+    };
+    commands
+        .spawn_bundle(SceneBundle { scene, ..default() })
+        .insert(ship_collider)
+        .insert(Restitution::coefficient(1.0));
+
     // Create a sky
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Capsule {
@@ -50,26 +71,27 @@ fn setup(
             // of light the mesh diffuses (invert the normals).
             radius: -150.0,
             depth: -1.0,
-            ..Default::default()
+            ..default()
         })),
         // We make the mesh as rough as possible to avoid metallic-like reflections
         material: materials.add(StandardMaterial {
             perceptual_roughness: 1.0,
             reflectance: 0.0,
             emissive: Color::rgb(0.0, 0.05, 0.5),
-            ..Default::default()
+            ..default()
         }),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(1.0, 1.0, 1.0)),
-        ..Default::default()
+        ..default()
     });
 
     //Create a ground
     commands
         .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 150.0 })),
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 200.0 })),
             material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
             ..default()
         })
+        .insert(Collider::cuboid(100.0, 0.1, 100.0))
+        .insert(Restitution::coefficient(1.0))
         .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -2.0, 0.0)));
 
     // Create a light
@@ -88,7 +110,7 @@ fn setup(
     // Create a camera
     commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 4.0, 10.0),
-        ..Default::default()
+        ..default()
     });
 }
 
@@ -174,5 +196,59 @@ fn move_camera(
         transform.rotate_local(rotation);
         translation = transform.rotation * translation;
         transform.translation += translation;
+    }
+}
+
+fn spawn_projectile(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    keys: Res<Input<KeyCode>>,
+    query: Query<&mut Transform, With<Camera3d>>,
+) {
+    if keys.just_pressed(KeyCode::LControl) {
+        // get came transform to spawn rocket in a right direction
+        if let Some(transform) = query.iter().next() {
+            // spawn in a front of the camera
+            let position = transform.translation + (transform.rotation * (-1.0 * Vec3::Z));
+            // velocity in a camera direction
+            let velocity = transform.rotation * -Vec3::Z * 20.0;
+
+            // Create a small bouncing ball
+            let radius = 0.1;
+            commands
+                .spawn_bundle(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::UVSphere {
+                        radius,
+                        sectors: 64,
+                        stacks: 32,
+                    })),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::rgb(1.0, 0.5, 0.5),
+                        unlit: true,
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .insert(RigidBody::Dynamic)
+                .insert(Collider::ball(radius))
+                .insert(Restitution::coefficient(0.7))
+                .insert_bundle(TransformBundle::from(Transform::from_translation(position)))
+                .insert(Velocity {
+                    linvel: velocity,
+                    ..default()
+                })
+                .with_children(|children| {
+                    children.spawn_bundle(PointLightBundle {
+                        point_light: PointLight {
+                            intensity: 1500.0,
+                            radius,
+                            color: Color::rgb(1.0, 0.2, 0.2),
+                            ..default()
+                        },
+                        ..default()
+                    });
+                });
+        }
     }
 }
