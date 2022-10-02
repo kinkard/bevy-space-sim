@@ -2,6 +2,9 @@ use bevy::prelude::*;
 use bevy_hanabi::*;
 use bevy_rapier3d::prelude::*;
 
+pub mod lifetime;
+use lifetime::*;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -351,19 +354,6 @@ fn burst_on_collision(
             }
 
             //commands.entity(*entity).despawn_recursive();
-        }
-    }
-}
-
-/// Entity lifetime in seconds, after which entity will be destroyed
-#[derive(Component)]
-struct Lifetime(f32);
-
-fn lifetime(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &mut Lifetime)>) {
-    for (entity, mut lifetime) in query.iter_mut() {
-        lifetime.0 -= time.delta_seconds();
-        if lifetime.0 <= 0.0 {
-            commands.entity(entity).despawn_recursive();
         }
     }
 }
