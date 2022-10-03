@@ -66,12 +66,12 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
                 EffectAsset {
                     name: String::from("Default explosion"),
                     capacity: 1024,
-                    spawner: Spawner::once(8.0.into(), false),
+                    spawner: Spawner::once(64.0.into(), false),
                     ..default()
                 }
                 .init(PositionSphereModifier {
                     radius: 0.1,
-                    speed: 0.2.into(),
+                    speed: 0.5.into(),
                     dimension: ShapeDimension::Surface,
                     ..default()
                 })
@@ -105,7 +105,7 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
         .spawn_bundle(ParticleEffectBundle::new(
             effects.add(
                 EffectAsset {
-                    capacity: 32768,
+                    capacity: 16384,
                     spawner: Spawner::once(1024.0.into(), false),
                     ..default()
                 }
@@ -140,8 +140,8 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
         .spawn_bundle(ParticleEffectBundle::new(
             effects.add(
                 EffectAsset {
-                    capacity: 32768,
-                    spawner: Spawner::once(32.0.into(), false),
+                    capacity: 16384,
+                    spawner: Spawner::once(64.0.into(), false),
                     ..default()
                 }
                 .init(PositionSphereModifier {
