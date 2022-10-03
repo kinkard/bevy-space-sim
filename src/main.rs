@@ -1,5 +1,7 @@
 use bevy::prelude::*;
+use bevy::time::FixedTimestep;
 use bevy_rapier3d::prelude::*;
+use rand::Rng;
 
 pub mod projectile;
 
@@ -16,6 +18,11 @@ fn main() {
         .add_startup_system(setup)
         .add_system(move_camera)
         .add_system(spawn_projectile)
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(FixedTimestep::step(5.0))
+                .with_system(spawn_baloon),
+        )
         .add_system(bevy::window::close_on_esc)
         .run();
 }
@@ -100,13 +107,13 @@ fn setup(
     // Create a light
     commands.spawn_bundle(PointLightBundle {
         point_light: PointLight {
-            intensity: 4000.0,
-            range: 100.0,
-            radius: 2.0,
+            intensity: 40000.0,
+            range: 200.0,
+            radius: 20.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 10.0, 4.0),
+        transform: Transform::from_xyz(0.0, 50.0, 0.0),
         ..default()
     });
 
@@ -187,8 +194,8 @@ fn move_camera(
 
         if let Some(pos) = window.cursor_position() {
             let offset = center - pos;
-            // Safe zone around screen center
-            if offset.length_squared() > 400.0 {
+            // Safe zone around screen center for mouse_guidance mode
+            if mouse.pressed(MouseButton::Left) || offset.length_squared() > 400.0 {
                 rotation *= Quat::from_rotation_y(0.005 * offset.x.to_radians());
                 rotation *= Quat::from_rotation_x(-0.005 * offset.y.to_radians());
             }
@@ -244,7 +251,6 @@ fn spawn_projectile(
                     explosion: projectile::ExplosionEffect::Big,
                     ..default()
                 })
-                .insert(Restitution::coefficient(0.7))
                 .with_children(|children| {
                     children.spawn_bundle(PointLightBundle {
                         point_light: PointLight {
@@ -304,4 +310,50 @@ fn spawn_projectile(
             });
         }
     }
+}
+
+fn spawn_baloon(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    assets: Res<AssetServer>,
+) {
+    let position = loop {
+        let position = Vec3 {
+            x: rand::thread_rng().gen_range(-100.0..100.0),
+            z: rand::thread_rng().gen_range(-100.0..100.0),
+            y: 2.0,
+        };
+        // Regenerate position if it is inside safe area (where space ship is located)
+        if position.x.abs() > 10.0 && position.z.abs() > 10.0 {
+            break position;
+        }
+    };
+
+    let radius = 3.0;
+    commands.spawn_bundle(projectile::ProjectileBundle {
+        mesh_material: PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius,
+                sectors: 64,
+                stacks: 32,
+            })),
+            material: materials.add(StandardMaterial {
+                base_color_texture: assets.load("textures/aim2.png").into(),
+                ..default()
+            }),
+            transform: Transform::from_translation(position)
+                .with_rotation(Quat::from_rotation_x(std::f32::consts::PI * 0.5)),
+            ..default()
+        },
+        velocity: Velocity {
+            linvel: Vec3::Y * rand::thread_rng().gen_range(1.0..5.0),
+            angvel: Vec3::Y * rand::thread_rng().gen_range(-2.0..2.0),
+            ..default()
+        },
+        collider: Collider::ball(radius),
+        lifetime: projectile::Lifetime(60.0),
+        explosion: projectile::ExplosionEffect::Debug,
+        ..default()
+    });
 }
