@@ -1,5 +1,5 @@
 [package]
-name = "space-sim-bevy"
+name = "bevy-space-sim"
 version = "0.1.0"
 edition = "2021"
 
