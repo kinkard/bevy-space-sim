@@ -276,13 +276,12 @@ fn spawn_projectile(
 
             // Create a small bullet
             let radius = 0.02;
-
             commands.spawn_bundle(projectile::ProjectileBundle {
-                collider: Collider::capsule_y(2.0 * radius, radius),
+                collider: Collider::capsule_y(8.0 * radius, radius),
                 mesh_material: PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Capsule {
                         radius,
-                        depth: 4.0 * radius,
+                        depth: 16.0 * radius,
                         ..default()
                     })),
                     material: materials.add(StandardMaterial {

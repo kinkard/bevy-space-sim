@@ -141,7 +141,7 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
             effects.add(
                 EffectAsset {
                     capacity: 16384,
-                    spawner: Spawner::once(64.0.into(), false),
+                    spawner: Spawner::once(128.0.into(), false),
                     ..default()
                 }
                 .init(PositionSphereModifier {
@@ -150,7 +150,7 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
                     dimension: ShapeDimension::Surface,
                     ..default()
                 })
-                .init(ParticleLifetimeModifier { lifetime: 0.2 })
+                .init(ParticleLifetimeModifier { lifetime: 0.3 })
                 // .render(ParticleTextureModifier {
                 //     texture: asset_server.load("textures/cloud.png"),
                 // })
