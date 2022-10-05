@@ -109,7 +109,7 @@ fn setup(
             material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
             ..default()
         })
-        .insert(Collider::cuboid(100.0, 0.1, 100.0))
+        .insert(Collider::halfspace(Vec3::Y).unwrap())
         .insert(Restitution::coefficient(1.0))
         .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -2.0, 0.0)));
 
