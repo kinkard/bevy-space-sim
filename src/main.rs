@@ -5,8 +5,14 @@ use rand::Rng;
 
 pub mod projectile;
 
+#[derive(Default)]
+struct WeaponState {
+    fire_calldown: Timer,
+}
+
 fn main() {
     App::new()
+        .init_resource::<WeaponState>()
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .insert_resource(RapierConfiguration {
@@ -32,7 +38,10 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    mut weapon_state: ResMut<WeaponState>,
 ) {
+    weapon_state.fire_calldown = Timer::from_seconds(0.1, true);
+
     // root UI node that covers all screen
     commands
         .spawn_bundle(NodeBundle {
@@ -215,7 +224,11 @@ fn spawn_projectile(
     mut materials: ResMut<Assets<StandardMaterial>>,
     keys: Res<Input<KeyCode>>,
     query: Query<&mut Transform, With<Camera3d>>,
+    mut weapon_state: ResMut<WeaponState>,
+    time: Res<Time>,
 ) {
+    weapon_state.fire_calldown.tick(time.delta());
+
     // big and slow projectile, prototype for rocket
     if keys.just_pressed(KeyCode::LControl) {
         // get came transform to spawn rocket in a right direction
@@ -266,7 +279,7 @@ fn spawn_projectile(
     }
 
     // Small and fast projectiles, prototype for bullets
-    if keys.pressed(KeyCode::LAlt) {
+    if keys.pressed(KeyCode::LAlt) && weapon_state.fire_calldown.just_finished() {
         // get came transform to spawn rocket in a right direction
         if let Some(transform) = query.iter().next() {
             // spawn in a front of the camera
