@@ -41,6 +41,7 @@ pub struct ProjectileBundle {
     pub rigid_body: RigidBody,
     pub events: ActiveEvents,
     pub sensor: Sensor,
+    pub name: Name,
 }
 
 impl Default for ProjectileBundle {
@@ -54,6 +55,7 @@ impl Default for ProjectileBundle {
             rigid_body: RigidBody::Dynamic,
             events: ActiveEvents::COLLISION_EVENTS,
             sensor: Sensor,
+            name: Name::new("Projectile"),
         }
     }
 }

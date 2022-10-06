@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::time::FixedTimestep;
+use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use rand::Rng;
 
@@ -14,6 +15,7 @@ fn main() {
     App::new()
         .init_resource::<WeaponState>()
         .add_plugins(DefaultPlugins)
+        .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .insert_resource(RapierConfiguration {
             gravity: Vec3::ZERO, // disable gravity at all
@@ -139,6 +141,7 @@ fn move_camera(
     mouse: Res<Input<MouseButton>>,
     mut windows: ResMut<Windows>,
     mut mouse_guidance: Local<bool>,
+    mut egui: ResMut<bevy_inspector_egui::bevy_egui::EguiContext>,
     mut query: Query<&mut Transform, With<Camera3d>>,
 ) {
     let mut camera_speed = 10.0;
@@ -195,7 +198,8 @@ fn move_camera(
         window.set_cursor_icon(icon);
     }
 
-    if *mouse_guidance || mouse.pressed(MouseButton::Left) {
+    let click_guidance = !egui.ctx_mut().is_using_pointer() && mouse.pressed(MouseButton::Left);
+    if *mouse_guidance || click_guidance {
         let center = Vec2 {
             x: window.width() / 2.0,
             y: window.height() / 2.0,
@@ -204,7 +208,7 @@ fn move_camera(
         if let Some(pos) = window.cursor_position() {
             let offset = center - pos;
             // Safe zone around screen center for mouse_guidance mode
-            if mouse.pressed(MouseButton::Left) || offset.length_squared() > 400.0 {
+            if click_guidance || offset.length_squared() > 400.0 {
                 rotation *= Quat::from_rotation_y(0.005 * offset.x.to_radians());
                 rotation *= Quat::from_rotation_x(-0.005 * offset.y.to_radians());
             }
@@ -366,6 +370,7 @@ fn spawn_baloon(
         collider: Collider::ball(radius),
         lifetime: projectile::Lifetime(60.0),
         explosion: projectile::ExplosionEffect::Debug,
+        name: Name::new("Shooting target"),
         ..default()
     });
 }
