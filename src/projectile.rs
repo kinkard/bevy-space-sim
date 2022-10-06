@@ -1,3 +1,5 @@
+use bevy::pbr::NotShadowCaster;
+use bevy::pbr::NotShadowReceiver;
 use bevy::prelude::*;
 use bevy_hanabi::*;
 use bevy_rapier3d::prelude::*;
@@ -32,6 +34,7 @@ impl Default for ExplosionEffect {
 
 #[derive(Bundle)]
 pub struct ProjectileBundle {
+    pub name: Name,
     #[bundle]
     pub mesh_material: PbrBundle,
     pub collider: Collider,
@@ -41,12 +44,15 @@ pub struct ProjectileBundle {
     pub rigid_body: RigidBody,
     pub events: ActiveEvents,
     pub sensor: Sensor,
-    pub name: Name,
+    // todo: would be nice to measure it's impact on performance
+    pub no_shadow_caster: NotShadowCaster,
+    pub no_shadow_receiver: NotShadowReceiver,
 }
 
 impl Default for ProjectileBundle {
     fn default() -> Self {
         Self {
+            name: Name::new("Projectile"),
             mesh_material: PbrBundle::default(),
             collider: Collider::default(),
             velocity: Velocity::default(),
@@ -55,7 +61,8 @@ impl Default for ProjectileBundle {
             rigid_body: RigidBody::Dynamic,
             events: ActiveEvents::COLLISION_EVENTS,
             sensor: Sensor,
-            name: Name::new("Projectile"),
+            no_shadow_caster: NotShadowCaster,
+            no_shadow_receiver: NotShadowReceiver,
         }
     }
 }

@@ -291,6 +291,9 @@ fn spawn_projectile(
             // velocity in a camera direction
             let velocity = transform.rotation * -Vec3::Z * 100.0;
 
+            // rotate `shape::Capsule` to to align with camera direction
+            let capsule_rotation = Quat::from_rotation_x(std::f32::consts::PI * 0.5);
+
             // Create a small bullet
             let radius = 0.02;
             commands.spawn_bundle(projectile::ProjectileBundle {
@@ -309,9 +312,7 @@ fn spawn_projectile(
                     }),
                     transform: Transform {
                         translation: position,
-                        rotation: transform.rotation
-                        // rotate `shape::Capsule` to to align with camera direction
-                            * Quat::from_rotation_x(std::f32::consts::PI * 0.5),
+                        rotation: transform.rotation * capsule_rotation,
                         scale: Vec3::ONE,
                     },
                     ..default()
@@ -347,8 +348,8 @@ fn spawn_baloon(
     };
 
     let radius = 3.0;
-    commands.spawn_bundle(projectile::ProjectileBundle {
-        mesh_material: PbrBundle {
+    commands
+        .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
                 radius,
                 sectors: 64,
@@ -361,16 +362,15 @@ fn spawn_baloon(
             transform: Transform::from_translation(position)
                 .with_rotation(Quat::from_rotation_x(std::f32::consts::PI * 0.5)),
             ..default()
-        },
-        velocity: Velocity {
+        })
+        .insert(Velocity {
             linvel: Vec3::Y * rand::thread_rng().gen_range(1.0..5.0),
             angvel: Vec3::Y * rand::thread_rng().gen_range(-2.0..2.0),
             ..default()
-        },
-        collider: Collider::ball(radius),
-        lifetime: projectile::Lifetime(60.0),
-        explosion: projectile::ExplosionEffect::Debug,
-        name: Name::new("Shooting target"),
-        ..default()
-    });
+        })
+        .insert(Name::new("Shooting target"))
+        .insert(Collider::ball(radius))
+        .insert(RigidBody::Dynamic)
+        .insert(projectile::Lifetime(60.0))
+        .insert(projectile::ExplosionEffect::Debug);
 }
