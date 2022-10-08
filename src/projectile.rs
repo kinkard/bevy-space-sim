@@ -34,35 +34,35 @@ impl Default for ExplosionEffect {
 
 #[derive(Bundle)]
 pub struct ProjectileBundle {
-    pub name: Name,
     #[bundle]
     pub mesh_material: PbrBundle,
     pub collider: Collider,
     pub velocity: Velocity,
     pub lifetime: Lifetime,
     pub explosion: ExplosionEffect,
-    pub rigid_body: RigidBody,
     pub events: ActiveEvents,
+    pub rigid_body: RigidBody,
     pub sensor: Sensor,
     // todo: would be nice to measure it's impact on performance
     pub no_shadow_caster: NotShadowCaster,
     pub no_shadow_receiver: NotShadowReceiver,
+    pub name: Name,
 }
 
 impl Default for ProjectileBundle {
     fn default() -> Self {
         Self {
-            name: Name::new("Projectile"),
             mesh_material: PbrBundle::default(),
             collider: Collider::default(),
             velocity: Velocity::default(),
             lifetime: Lifetime(10.0),
             explosion: ExplosionEffect::default(),
-            rigid_body: RigidBody::Dynamic,
             events: ActiveEvents::COLLISION_EVENTS,
+            rigid_body: RigidBody::Dynamic,
             sensor: Sensor,
             no_shadow_caster: NotShadowCaster,
             no_shadow_receiver: NotShadowReceiver,
+            name: Name::new("Projectile"),
         }
     }
 }
@@ -73,7 +73,6 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
         .spawn_bundle(ParticleEffectBundle::new(
             effects.add(
                 EffectAsset {
-                    name: String::from("Default explosion"),
                     capacity: 1024,
                     spawner: Spawner::once(64.0.into(), false),
                     ..default()
@@ -98,7 +97,8 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
                 }),
             ),
         ))
-        .insert(ExplosionEffect::Debug);
+        .insert(ExplosionEffect::Debug)
+        .insert(Name::new("ExplosionEffect::Debug"));
 
     let mut color_gradient = Gradient::new();
     color_gradient.add_key(0.0, Color::WHITE.into());
@@ -137,7 +137,8 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
                 }),
             ),
         ))
-        .insert(ExplosionEffect::Big);
+        .insert(ExplosionEffect::Big)
+        .insert(Name::new("ExplosionEffect::Big"));
 
     let mut gradient = Gradient::new();
     gradient.add_key(0.0, Color::WHITE.into());
@@ -170,7 +171,8 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
                 .render(ColorOverLifetimeModifier { gradient }),
             ),
         ))
-        .insert(ExplosionEffect::Small);
+        .insert(ExplosionEffect::Small)
+        .insert(Name::new("ExplosionEffect::Small"));
 }
 
 fn explosive_collision(
