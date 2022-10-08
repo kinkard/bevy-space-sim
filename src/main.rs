@@ -82,16 +82,19 @@ fn setup(
     };
     commands
         .spawn_bundle(SceneBundle { scene, ..default() })
+        .insert(Name::new("Spaceship"))
         .insert(ship_collider)
-        .insert(Restitution::coefficient(1.0));
+        .insert(Restitution::coefficient(1.0))
+        .insert_bundle(TransformBundle::from(Transform::from_scale(
+            2.0 * Vec3::ONE, // adjust model size for realizm
+        )));
 
     // Create a sky
     commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Capsule {
+        mesh: meshes.add(Mesh::from(shape::UVSphere {
             // We make the dimensions negative because we want to invert the direction
             // of light the mesh diffuses (invert the normals).
-            radius: -150.0,
-            depth: -1.0,
+            radius: -250.0,
             ..default()
         })),
         // We make the mesh as rough as possible to avoid metallic-like reflections
@@ -113,7 +116,7 @@ fn setup(
         })
         .insert(Collider::halfspace(Vec3::Y).unwrap())
         .insert(Restitution::coefficient(1.0))
-        .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -2.0, 0.0)));
+        .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -3.0, 0.0)));
 
     // Create a light
     commands.spawn_bundle(PointLightBundle {
