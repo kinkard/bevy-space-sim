@@ -5,7 +5,7 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-# Enable max optimizations for dependencies, but not for our code:
+# Enable max optimizations for dependencies, making debug build mach faster
 [profile.dev.package."*"]
 opt-level = 3
 
