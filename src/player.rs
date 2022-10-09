@@ -79,16 +79,16 @@ fn move_player(
     let window = windows.primary_mut();
     if keys.just_released(KeyCode::Space) {
         *mouse_guidance = !*mouse_guidance;
-        let icon = if *mouse_guidance {
-            CursorIcon::Crosshair
-        } else {
-            CursorIcon::Default
-        };
-        window.set_cursor_icon(icon);
     }
 
     let click_guidance = !egui.ctx_mut().is_using_pointer() && mouse.pressed(MouseButton::Left);
     if *mouse_guidance || click_guidance {
+        // egui sets it's own icon, so we override cursor it on every frame
+        window.set_cursor_icon(if *mouse_guidance {
+            CursorIcon::Crosshair
+        } else {
+            CursorIcon::Default
+        });
         let center = Vec2 {
             x: window.width() / 2.0,
             y: window.height() / 2.0,
