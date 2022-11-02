@@ -11,7 +11,13 @@ struct WeaponState {
     fire_calldown: Timer,
 }
 
-fn setup_camera(mut commands: Commands) {
+#[derive(Component)]
+struct PrimaryWeapon;
+
+#[derive(Component)]
+struct SecondaryWeapon;
+
+fn setup_player(mut commands: Commands) {
     // Create a player entity with a camera
     commands
         .spawn_bundle(Camera3dBundle {
@@ -19,7 +25,32 @@ fn setup_camera(mut commands: Commands) {
             ..default()
         })
         .insert(Player)
-        .insert(Name::new("Player"));
+        .insert(Name::new("Player"))
+        .with_children(|parent| {
+            parent
+                .spawn()
+                .insert(PrimaryWeapon)
+                .insert_bundle(TransformBundle::from(Transform::from_translation(
+                    -Vec3::Z + 0.2 * Vec3::X,
+                )));
+            parent
+                .spawn()
+                .insert(PrimaryWeapon)
+                .insert_bundle(TransformBundle::from(Transform::from_translation(
+                    -Vec3::Z - 0.2 * Vec3::X,
+                )));
+            parent
+                .spawn()
+                .insert(PrimaryWeapon)
+                .insert_bundle(TransformBundle::from(Transform::from_translation(
+                    -Vec3::Z - 0.2 * Vec3::Y,
+                )));
+
+            parent
+                .spawn()
+                .insert(SecondaryWeapon)
+                .insert_bundle(TransformBundle::from(Transform::from_translation(-Vec3::Z)));
+        });
 }
 
 fn setup_hud(mut commands: Commands, assets: Res<AssetServer>) {
@@ -134,75 +165,21 @@ fn move_player(
     transform.translation += translation;
 }
 
-fn spawn_projectile(
+fn primary_weapon_shoot(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     keys: Res<Input<KeyCode>>,
-    query: Query<&mut Transform, With<Player>>,
+    query: Query<&mut GlobalTransform, With<PrimaryWeapon>>,
     mut weapon_state: ResMut<WeaponState>,
     time: Res<Time>,
 ) {
+    // TODO: find a better place to update weapon's timers
     weapon_state.fire_calldown.tick(time.delta());
-
-    // big and slow projectile, prototype for rocket
-    if keys.just_pressed(KeyCode::LControl) {
-        // get came transform to spawn rocket in a right direction
-        if let Some(transform) = query.iter().next() {
-            // spawn in a front of the camera
-            let position = transform.translation + (transform.rotation * (-1.0 * Vec3::Z));
-            // velocity in a camera direction
-            let velocity = transform.rotation * -Vec3::Z * 20.0;
-
-            let radius = 0.1;
-            commands
-                .spawn_bundle(projectile::ProjectileBundle {
-                    mesh_material: PbrBundle {
-                        mesh: meshes.add(Mesh::from(shape::UVSphere {
-                            radius,
-                            sectors: 64,
-                            stacks: 32,
-                        })),
-                        material: materials.add(StandardMaterial {
-                            base_color: Color::rgb(1.0, 0.5, 0.5),
-                            unlit: true,
-                            ..default()
-                        }),
-                        transform: Transform::from_translation(position),
-                        ..default()
-                    },
-                    velocity: Velocity {
-                        linvel: velocity,
-                        ..default()
-                    },
-                    collider: Collider::ball(radius),
-                    lifetime: projectile::Lifetime(30.0),
-                    explosion: projectile::ExplosionEffect::Big,
-                    ..default()
-                })
-                .with_children(|children| {
-                    children.spawn_bundle(PointLightBundle {
-                        point_light: PointLight {
-                            intensity: 1500.0,
-                            radius,
-                            color: Color::rgb(1.0, 0.2, 0.2),
-                            ..default()
-                        },
-                        ..default()
-                    });
-                });
-        }
-    }
 
     // Small and fast projectiles, prototype for bullets
     if keys.pressed(KeyCode::LAlt) && weapon_state.fire_calldown.just_finished() {
-        // get came transform to spawn rocket in a right direction
-        if let Some(transform) = query.iter().next() {
-            // spawn in a front of the camera
-            let position = transform.translation + (transform.rotation * (-1.0 * Vec3::Z));
-            // velocity in a camera direction
-            let velocity = transform.rotation * -Vec3::Z * 100.0;
-
+        for transform in query.iter() {
             // rotate `shape::Capsule` to to align with camera direction
             let capsule_rotation = Quat::from_rotation_x(std::f32::consts::PI * 0.5);
 
@@ -223,14 +200,14 @@ fn spawn_projectile(
                         ..default()
                     }),
                     transform: Transform {
-                        translation: position,
-                        rotation: transform.rotation * capsule_rotation,
+                        translation: transform.translation(),
+                        rotation: Quat::from_affine3(&transform.affine()) * capsule_rotation,
                         scale: Vec3::ONE,
                     },
                     ..default()
                 },
                 velocity: Velocity {
-                    linvel: velocity,
+                    linvel: transform.forward() * 100.0,
                     ..default()
                 },
                 lifetime: projectile::Lifetime(10.0),
@@ -241,15 +218,67 @@ fn spawn_projectile(
     }
 }
 
+fn secondary_weapon_shoot(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    keys: Res<Input<KeyCode>>,
+    query: Query<&mut GlobalTransform, With<SecondaryWeapon>>,
+) {
+    // big and slow projectile, prototype for rocket
+    if keys.just_pressed(KeyCode::LControl) {
+        for transform in query.iter() {
+            let radius = 0.1;
+            commands
+                .spawn_bundle(projectile::ProjectileBundle {
+                    mesh_material: PbrBundle {
+                        mesh: meshes.add(Mesh::from(shape::UVSphere {
+                            radius,
+                            sectors: 64,
+                            stacks: 32,
+                        })),
+                        material: materials.add(StandardMaterial {
+                            base_color: Color::rgb(1.0, 0.5, 0.5),
+                            unlit: true,
+                            ..default()
+                        }),
+                        transform: Transform::from_translation(transform.translation()),
+                        ..default()
+                    },
+                    velocity: Velocity {
+                        linvel: transform.forward() * 20.0,
+                        ..default()
+                    },
+                    collider: Collider::ball(radius),
+                    lifetime: projectile::Lifetime(30.0),
+                    explosion: projectile::ExplosionEffect::Big,
+                    ..default()
+                })
+                .with_children(|children| {
+                    children.spawn_bundle(PointLightBundle {
+                        point_light: PointLight {
+                            intensity: 1500.0,
+                            radius,
+                            color: Color::rgb(1.0, 0.2, 0.2),
+                            ..default()
+                        },
+                        ..default()
+                    });
+                });
+        }
+    }
+}
+
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(WeaponState {
             fire_calldown: Timer::from_seconds(0.1, true),
         })
-        .add_startup_system(setup_camera)
+        .add_startup_system(setup_player)
         .add_startup_system(setup_hud)
         .add_system(move_player)
-        .add_system(spawn_projectile);
+        .add_system(primary_weapon_shoot)
+        .add_system(secondary_weapon_shoot);
     }
 }
