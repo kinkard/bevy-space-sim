@@ -19,7 +19,7 @@ fn main() {
         .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(projectile::ProjectilePlugin)
         .add_plugin(player::PlayerPlugin)
-        .add_startup_system(setup)
+        .add_startup_system(setup_env)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(5.0))
@@ -29,36 +29,12 @@ fn main() {
         .run();
 }
 
-fn setup(
+fn setup_env(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    // root UI node that covers all screen
-    commands
-        .spawn_bundle(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                align_items: AlignItems::Center, // vertical alignment
-                justify_content: JustifyContent::Center, // horizontal alignment
-                ..default()
-            },
-            color: Color::NONE.into(),
-            ..default()
-        })
-        .with_children(|parent| {
-            parent.spawn_bundle(ImageBundle {
-                style: Style {
-                    size: Size::new(Val::Px(40.0), Val::Px(40.0)),
-                    ..default()
-                },
-                image: asset_server.load("UI/aim.png").into(),
-                ..default()
-            });
-        })
-        .insert(Name::new("UI"));
-
     // Space ship with a collision model, computed by V-HACD algorithm based on model shape
     // N.B.: Due to async collider loading implementation and it's isolation from bevy,
     // any `TransformBundle` will be applied only on a visual model, but not to the collider.

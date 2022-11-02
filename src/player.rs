@@ -11,9 +11,7 @@ struct WeaponState {
     fire_calldown: Timer,
 }
 
-fn setup(mut commands: Commands, mut weapon_state: ResMut<WeaponState>) {
-    weapon_state.fire_calldown = Timer::from_seconds(0.1, true);
-
+fn setup_camera(mut commands: Commands) {
     // Create a player entity with a camera
     commands
         .spawn_bundle(Camera3dBundle {
@@ -22,6 +20,32 @@ fn setup(mut commands: Commands, mut weapon_state: ResMut<WeaponState>) {
         })
         .insert(Player)
         .insert(Name::new("Player"));
+}
+
+fn setup_hud(mut commands: Commands, assets: Res<AssetServer>) {
+    // root UI node that covers all screen
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                align_items: AlignItems::Center, // vertical alignment
+                justify_content: JustifyContent::Center, // horizontal alignment
+                ..default()
+            },
+            color: Color::NONE.into(),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn_bundle(ImageBundle {
+                style: Style {
+                    size: Size::new(Val::Px(40.0), Val::Px(40.0)),
+                    ..default()
+                },
+                image: assets.load("UI/aim.png").into(),
+                ..default()
+            });
+        })
+        .insert(Name::new("UI"));
 }
 
 fn move_player(
@@ -220,9 +244,12 @@ fn spawn_projectile(
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<WeaponState>()
-            .add_startup_system(setup)
-            .add_system(move_player)
-            .add_system(spawn_projectile);
+        app.insert_resource(WeaponState {
+            fire_calldown: Timer::from_seconds(0.1, true),
+        })
+        .add_startup_system(setup_camera)
+        .add_startup_system(setup_hud)
+        .add_system(move_player)
+        .add_system(spawn_projectile);
     }
 }
