@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{pbr::wireframe, prelude::*};
 use bevy_rapier3d::prelude::*;
 
 use crate::projectile;
@@ -53,6 +53,9 @@ fn setup_player(mut commands: Commands) {
         });
 }
 
+#[derive(Component)]
+struct ConsoleText;
+
 fn setup_hud(mut commands: Commands, assets: Res<AssetServer>) {
     // root UI node that covers all screen
     commands
@@ -67,6 +70,7 @@ fn setup_hud(mut commands: Commands, assets: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
+            // Aim in the middle of the screen
             parent.spawn_bundle(ImageBundle {
                 style: Style {
                     size: Size::new(Val::Px(40.0), Val::Px(40.0)),
@@ -75,6 +79,39 @@ fn setup_hud(mut commands: Commands, assets: Res<AssetServer>) {
                 image: assets.load("UI/aim.png").into(),
                 ..default()
             });
+
+            // Semi-transparent section in the left bottom corner for in-game infromation
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(25.0), Val::Percent(25.0)),
+                        position_type: PositionType::Absolute,
+                        position: UiRect {
+                            right: Val::Px(10.0),
+                            bottom: Val::Px(10.0),
+                            ..default()
+                        },
+                        align_items: AlignItems::FlexEnd, // vertical alignment to top
+                        justify_content: JustifyContent::FlexStart, // horizontal alignment to left
+                        padding: UiRect::all(Val::Px(5.0)),
+                        flex_wrap: FlexWrap::Wrap,
+                        ..default()
+                    },
+                    color: Color::rgba(0.7, 0.7, 0.7, 0.3).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent
+                        .spawn_bundle(TextBundle::from_section(
+                            "",
+                            TextStyle {
+                                font: assets.load("fonts/FiraMono-Medium.ttf"),
+                                font_size: 20.0,
+                                color: Color::WHITE,
+                            },
+                        ))
+                        .insert(ConsoleText);
+                });
         })
         .insert(Name::new("UI"));
 }
@@ -269,6 +306,60 @@ fn secondary_weapon_shoot(
     }
 }
 
+#[derive(Component)]
+struct LockedTarget;
+
+fn select_target(
+    mut commands: Commands,
+    rapier_context: Res<RapierContext>,
+    camera: Query<&mut Transform, With<Camera>>,
+    target: Query<Entity, With<LockedTarget>>,
+    keys: Res<Input<KeyCode>>,
+) {
+    if keys.just_pressed(KeyCode::T) {
+        let transform = camera.single();
+        if let Some((entity, _)) = rapier_context.cast_ray(
+            transform.translation,
+            transform.forward(),
+            Real::MAX,
+            false,
+            QueryFilter::default(),
+        ) {
+            // Select a new target and highlight it via Wireframe
+            commands
+                .entity(entity)
+                .insert(LockedTarget)
+                .insert(wireframe::Wireframe);
+
+            // Remove previous target selection if any.
+            // This order also unselects previous target on a repeated select.
+            if let Ok(prev_target) = target.get_single() {
+                commands
+                    .entity(prev_target)
+                    .remove::<LockedTarget>()
+                    .remove::<wireframe::Wireframe>();
+            }
+        }
+    }
+}
+
+fn show_selected_target_info(
+    player: Query<&mut GlobalTransform, With<Player>>,
+    target: Query<(Option<&mut Name>, &mut GlobalTransform), (With<LockedTarget>, Without<Player>)>,
+    mut console: Query<&mut Text, With<ConsoleText>>,
+) {
+    let mut console = console.single_mut();
+    if let Ok((name, transform)) = target.get_single() {
+        let player_pos = player.single().translation();
+        let distance = player_pos.distance(transform.translation());
+
+        let name = name.map_or("-- Unknown --", |name| name.as_str());
+        console.sections[0].value = format!("Selected: {name}\nDistance to target: {distance:.2}m");
+    } else {
+        console.sections[0].value = String::from("Target not selected!");
+    }
+}
+
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
@@ -277,6 +368,9 @@ impl Plugin for PlayerPlugin {
         })
         .add_startup_system(setup_player)
         .add_startup_system(setup_hud)
+        .add_plugin(wireframe::WireframePlugin)
+        .add_system(select_target)
+        .add_system(show_selected_target_info)
         .add_system(move_player)
         .add_system(primary_weapon_shoot)
         .add_system(secondary_weapon_shoot);
