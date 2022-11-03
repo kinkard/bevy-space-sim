@@ -109,10 +109,11 @@ fn spawn_baloon(
     mut materials: ResMut<Assets<StandardMaterial>>,
     assets: Res<AssetServer>,
 ) {
+    let mut rng = rand::thread_rng();
     let position = loop {
         let position = Vec3 {
-            x: rand::thread_rng().gen_range(-100.0..100.0),
-            z: rand::thread_rng().gen_range(-100.0..100.0),
+            x: rng.gen_range(-100.0..100.0),
+            z: rng.gen_range(-100.0..100.0),
             y: 2.0,
         };
         // Regenerate position if it is inside safe area (where space ship is located)
@@ -138,8 +139,8 @@ fn spawn_baloon(
             ..default()
         })
         .insert(Velocity {
-            linvel: Vec3::Y * rand::thread_rng().gen_range(1.0..5.0),
-            angvel: Vec3::Y * rand::thread_rng().gen_range(-2.0..2.0),
+            linvel: Vec3::Y * rng.gen_range(1.0..5.0),
+            angvel: Vec3::Y * rng.gen_range(-2.0..2.0),
             ..default()
         })
         .insert(Collider::ball(radius))
