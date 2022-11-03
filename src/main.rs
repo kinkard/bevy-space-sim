@@ -110,6 +110,7 @@ fn spawn_baloon(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     assets: Res<AssetServer>,
+    mut baloon_number: Local<u32>,
 ) {
     let mut rng = rand::thread_rng();
     let position = loop {
@@ -149,7 +150,8 @@ fn spawn_baloon(
         .insert(RigidBody::Dynamic)
         .insert(projectile::Lifetime(60.0))
         .insert(projectile::ExplosionEffect::Debug)
-        .insert(Name::new("Shooting target"));
+        .insert(Name::new(format!("Shooting target #{}", *baloon_number)));
+    *baloon_number += 1;
 }
 
 fn update_msaa(keys: Res<Input<KeyCode>>, mut msaa: ResMut<Msaa>) {
