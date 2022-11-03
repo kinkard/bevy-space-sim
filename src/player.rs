@@ -1,7 +1,7 @@
 use bevy::{pbr::wireframe, prelude::*};
 use bevy_rapier3d::prelude::*;
 
-use crate::projectile;
+use crate::projectile::{self, Damage, HitPoints};
 
 #[derive(Component)]
 struct Player;
@@ -249,6 +249,7 @@ fn primary_weapon_shoot(
                 },
                 lifetime: projectile::Lifetime(10.0),
                 explosion: projectile::ExplosionEffect::Small,
+                damage: Damage(1),
                 ..default()
             });
         }
@@ -289,6 +290,7 @@ fn secondary_weapon_shoot(
                     collider: Collider::ball(radius),
                     lifetime: projectile::Lifetime(30.0),
                     explosion: projectile::ExplosionEffect::Big,
+                    damage: Damage(19),
                     ..default()
                 })
                 .with_children(|children| {
@@ -345,18 +347,22 @@ fn select_target(
 
 fn show_selected_target_info(
     player: Query<&GlobalTransform, With<Player>>,
-    target: Query<(Option<&Name>, &GlobalTransform), With<LockedTarget>>,
+    target: Query<(Option<&Name>, &GlobalTransform, Option<&HitPoints>), With<LockedTarget>>,
     mut console: Query<&mut Text, With<ConsoleText>>,
 ) {
     let mut console = console.single_mut();
-    if let Ok((name, transform)) = target.get_single() {
+    if let Ok((name, transform, hp)) = target.get_single() {
         let player_pos = player.single().translation();
         let distance = player_pos.distance(transform.translation());
 
         let name = name.map_or("-- Unknown --", |name| name.as_str());
         console.sections[0].value = format!("Selected: {name}\nDistance to target: {distance:.2}m");
+
+        if let Some(hp) = hp {
+            console.sections[0].value += &format!("\nHit Points: {}%", hp.percent());
+        }
     } else {
-        console.sections[0].value = String::from("Target not selected!");
+        console.sections[0].value = String::from("Press 'T' to select a target.");
     }
 }
 

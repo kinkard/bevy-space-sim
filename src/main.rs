@@ -57,6 +57,8 @@ fn setup_env(
         .insert_bundle(TransformBundle::from(Transform::from_scale(
             2.0 * Vec3::ONE, // adjust model size for realizm
         )))
+        // todo: resolve how to add hitpoints to the collider entity
+        //.insert(projectile::HitPoints::new(1000))
         .insert(Name::new("Spaceship"));
 
     // Create a sky
@@ -149,7 +151,7 @@ fn spawn_baloon(
         .insert(Collider::ball(radius))
         .insert(RigidBody::Dynamic)
         .insert(projectile::Lifetime(60.0))
-        .insert(projectile::ExplosionEffect::Debug)
+        .insert(projectile::HitPoints::new(20))
         .insert(Name::new(format!("Shooting target #{}", *baloon_number)));
     *baloon_number += 1;
 }

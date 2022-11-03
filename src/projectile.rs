@@ -17,6 +17,69 @@ fn lifetime(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &
     }
 }
 
+#[derive(Component)]
+pub struct Damage(pub u32);
+
+#[derive(Component)]
+pub struct HitPoints {
+    maximum: u32,
+    current: u32,
+}
+
+impl HitPoints {
+    pub fn new(maximum: u32) -> Self {
+        HitPoints {
+            maximum,
+            current: maximum,
+        }
+    }
+    pub fn percent(&self) -> u32 {
+        100 * self.current / self.maximum
+    }
+    pub fn dead(&self) -> bool {
+        self.current == 0
+    }
+    pub fn hit(&mut self, damage: u32) -> &mut Self {
+        self.current = self.current.saturating_sub(damage);
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::HitPoints;
+
+    #[test]
+    fn test_new_hp_always_100() {
+        assert_eq!(HitPoints::new(1).percent(), 100);
+        assert_eq!(HitPoints::new(2).percent(), 100);
+        assert_eq!(HitPoints::new(111).percent(), 100);
+    }
+
+    #[test]
+    fn test_hp_hit() {
+        assert_eq!(HitPoints::new(1).hit(0).percent(), 100);
+        assert_eq!(HitPoints::new(1).hit(1).percent(), 0);
+        assert_eq!(HitPoints::new(1).hit(10).percent(), 0);
+        assert_eq!(HitPoints::new(50).hit(25).percent(), 50);
+        assert_eq!(HitPoints::new(100).hit(0).percent(), 100);
+        assert_eq!(HitPoints::new(100).hit(1).percent(), 99);
+        assert_eq!(HitPoints::new(100).hit(99).percent(), 1);
+        assert_eq!(HitPoints::new(100).hit(100).percent(), 0);
+        assert_eq!(HitPoints::new(100).hit(101).percent(), 0);
+
+        assert!(!HitPoints::new(1).hit(0).dead());
+        assert!(HitPoints::new(1).hit(1).dead());
+        assert!(HitPoints::new(1).hit(10).dead());
+        assert!(!HitPoints::new(50).hit(25).dead());
+        assert!(!HitPoints::new(100).hit(0).dead());
+        assert!(!HitPoints::new(100).hit(1).dead());
+        assert!(!HitPoints::new(100).hit(99).dead());
+        assert!(HitPoints::new(100).hit(100).dead());
+        assert!(HitPoints::new(100).hit(101).dead());
+    }
+}
+
 /// Entity explosion effect. If set - entity will be destroyed on collision
 /// with spawning a corresponding effect.
 #[derive(Component, Copy, Clone, PartialEq)]
@@ -40,6 +103,7 @@ pub struct ProjectileBundle {
     pub velocity: Velocity,
     pub lifetime: Lifetime,
     pub explosion: ExplosionEffect,
+    pub damage: Damage,
     pub events: ActiveEvents,
     pub rigid_body: RigidBody,
     pub sensor: Sensor,
@@ -57,6 +121,7 @@ impl Default for ProjectileBundle {
             velocity: Velocity::default(),
             lifetime: Lifetime(10.0),
             explosion: ExplosionEffect::default(),
+            damage: Damage(0),
             events: ActiveEvents::COLLISION_EVENTS,
             rigid_body: RigidBody::Dynamic,
             sensor: Sensor,
@@ -175,6 +240,27 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
         .insert(Name::new("ExplosionEffect::Small"));
 }
 
+fn hit_collision(
+    mut commands: Commands,
+    mut collisions: EventReader<CollisionEvent>,
+    projectiles: Query<&Damage>,
+    mut targets: Query<&mut HitPoints>,
+) {
+    for event in collisions.iter() {
+        if let CollisionEvent::Started(first, second, _) = event {
+            for (projectile, target) in [(first, second), (second, first)] {
+                if let (Ok(damage), Ok(mut hp)) =
+                    (projectiles.get(*projectile), targets.get_mut(*target))
+                {
+                    if hp.hit(damage.0).dead() {
+                        commands.entity(*target).despawn_recursive();
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn explosive_collision(
     mut commands: Commands,
     mut collisions: EventReader<CollisionEvent>,
@@ -214,6 +300,7 @@ impl Plugin for ProjectilePlugin {
         app.add_plugin(HanabiPlugin)
             .add_startup_system(setup)
             .add_system(lifetime)
+            .add_system(hit_collision)
             .add_system(explosive_collision);
     }
 }
