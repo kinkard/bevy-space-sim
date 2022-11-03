@@ -207,7 +207,7 @@ fn primary_weapon_shoot(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     keys: Res<Input<KeyCode>>,
-    query: Query<&mut GlobalTransform, With<PrimaryWeapon>>,
+    query: Query<&GlobalTransform, With<PrimaryWeapon>>,
     mut weapon_state: ResMut<WeaponState>,
     time: Res<Time>,
 ) {
@@ -260,7 +260,7 @@ fn secondary_weapon_shoot(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     keys: Res<Input<KeyCode>>,
-    query: Query<&mut GlobalTransform, With<SecondaryWeapon>>,
+    query: Query<&GlobalTransform, With<SecondaryWeapon>>,
 ) {
     // big and slow projectile, prototype for rocket
     if keys.just_pressed(KeyCode::LControl) {
@@ -312,7 +312,7 @@ struct LockedTarget;
 fn select_target(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
-    camera: Query<&mut Transform, With<Camera>>,
+    camera: Query<&Transform, With<Camera>>,
     target: Query<Entity, With<LockedTarget>>,
     keys: Res<Input<KeyCode>>,
 ) {
@@ -344,8 +344,8 @@ fn select_target(
 }
 
 fn show_selected_target_info(
-    player: Query<&mut GlobalTransform, With<Player>>,
-    target: Query<(Option<&mut Name>, &mut GlobalTransform), (With<LockedTarget>, Without<Player>)>,
+    player: Query<&GlobalTransform, With<Player>>,
+    target: Query<(Option<&Name>, &GlobalTransform), With<LockedTarget>>,
     mut console: Query<&mut Text, With<ConsoleText>>,
 ) {
     let mut console = console.single_mut();
