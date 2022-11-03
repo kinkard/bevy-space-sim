@@ -25,6 +25,8 @@ fn main() {
                 .with_run_criteria(FixedTimestep::step(5.0))
                 .with_system(spawn_baloon),
         )
+        .insert_resource(Msaa { samples: 4 })
+        .add_system(update_msaa)
         .add_system(bevy::window::close_on_esc)
         .run();
 }
@@ -148,4 +150,18 @@ fn spawn_baloon(
         .insert(projectile::Lifetime(60.0))
         .insert(projectile::ExplosionEffect::Debug)
         .insert(Name::new("Shooting target"));
+}
+
+fn update_msaa(keys: Res<Input<KeyCode>>, mut msaa: ResMut<Msaa>) {
+    if keys.just_pressed(KeyCode::M) {
+        // Unfortunately, WGPU currently only supports 1 or 4 samples.
+        // See https://github.com/gfx-rs/wgpu/issues/1832 for more info.
+        if msaa.samples == 4 {
+            info!("MSAA: disabled");
+            msaa.samples = 1;
+        } else {
+            info!("MSAA: enabled 4x");
+            msaa.samples = 4;
+        }
+    }
 }
