@@ -134,6 +134,11 @@ impl Default for ProjectileBundle {
 
 fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
     // Create a default explosion effect
+    let mut color_gradient = Gradient::new();
+    color_gradient.add_key(0.0, Color::PINK.into());
+    color_gradient.add_key(0.4, Color::PINK.into());
+    color_gradient.add_key(1.0, Color::NONE.into());
+
     commands
         .spawn_bundle(ParticleEffectBundle::new(
             effects.add(
@@ -157,8 +162,7 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
                     gradient: Gradient::constant(Vec2::splat(0.1)),
                 })
                 .render(ColorOverLifetimeModifier {
-                    // PINK color
-                    gradient: Gradient::constant(Color::PINK.into()),
+                    gradient: color_gradient,
                 }),
             ),
         ))
