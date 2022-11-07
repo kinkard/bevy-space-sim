@@ -6,6 +6,7 @@ use rand::Rng;
 
 pub mod player;
 pub mod projectile;
+pub mod scene_setup;
 
 fn main() {
     App::new()
@@ -17,6 +18,7 @@ fn main() {
             ..default()
         })
         .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(scene_setup::SceneSetupPlugin)
         .add_plugin(projectile::ProjectilePlugin)
         .add_plugin(player::PlayerPlugin)
         .add_startup_system(setup_env)
