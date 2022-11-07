@@ -7,6 +7,7 @@ use rand::Rng;
 pub mod player;
 pub mod projectile;
 pub mod scene_setup;
+pub mod turret;
 
 fn main() {
     App::new()
@@ -21,6 +22,7 @@ fn main() {
         .add_plugin(scene_setup::SceneSetupPlugin)
         .add_plugin(projectile::ProjectilePlugin)
         .add_plugin(player::PlayerPlugin)
+        .add_plugin(turret::TurretPlugin)
         .add_startup_system(setup_env)
         .add_system_set(
             SystemSet::new()
@@ -37,6 +39,7 @@ fn setup_env(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut ev_create_turret: EventWriter<turret::CreateTurretEvent>,
     asset_server: Res<AssetServer>,
 ) {
     // Space ship with a collision model, computed by V-HACD algorithm based on model shape
@@ -94,6 +97,22 @@ fn setup_env(
         .insert(Restitution::coefficient(1.0))
         .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -3.0, 0.0)))
         .insert(Name::new("Ground"));
+
+    let pos = 25.0;
+    for (x, z) in [
+        (-pos, -pos),
+        (0.0, -pos),
+        (pos, -pos),
+        (-pos, 0.0),
+        (pos, 0.0),
+        (-pos, pos),
+        (0.0, pos),
+        (pos, pos),
+    ] {
+        ev_create_turret.send(turret::CreateTurretEvent(Transform::from_translation(
+            Vec3::new(x, -3.0, z),
+        )));
+    }
 
     // Create a light
     commands.spawn_bundle(PointLightBundle {

@@ -12,7 +12,7 @@ struct WeaponState {
 }
 
 #[derive(Component)]
-struct PrimaryWeapon;
+pub struct PrimaryWeapon;
 
 #[derive(Component)]
 struct SecondaryWeapon;
@@ -217,9 +217,6 @@ fn primary_weapon_shoot(
     // Small and fast projectiles, prototype for bullets
     if keys.pressed(KeyCode::LAlt) && weapon_state.fire_calldown.just_finished() {
         for transform in query.iter() {
-            // rotate `shape::Capsule` to to align with camera direction
-            let capsule_rotation = Quat::from_rotation_x(std::f32::consts::PI * 0.5);
-
             // Create a small bullet
             let radius = 0.02;
             commands.spawn_bundle(projectile::ProjectileBundle {
@@ -238,7 +235,8 @@ fn primary_weapon_shoot(
                     }),
                     transform: Transform {
                         translation: transform.translation(),
-                        rotation: Quat::from_affine3(&transform.affine()) * capsule_rotation,
+                        // `Collider::capsule_y` and `shape::Capsule` are both aligned with Vec3::Y axis
+                        rotation: Quat::from_rotation_arc(Vec3::Y, transform.forward()),
                         scale: Vec3::ONE,
                     },
                     ..default()
@@ -309,7 +307,7 @@ fn secondary_weapon_shoot(
 }
 
 #[derive(Component)]
-struct LockedTarget;
+pub struct LockedTarget;
 
 fn select_target(
     mut commands: Commands,
