@@ -6,8 +6,12 @@ use crate::{
     scene_setup::SetupRequired,
 };
 
-/// Emit this event to create a turret with specified Transform.
-pub struct CreateTurretEvent(pub Transform);
+/// Emit this event to create a turret with specified parameters
+pub struct CreateTurretEvent {
+    pub transform: Transform,
+    /// Rotation speed in rad/s
+    pub rotation_speed: f32,
+}
 
 /// Annotates an entity to be used for building direction vector to the specified target.
 /// Turret orientation system rotates joints (entities with `Joint` component) to
@@ -27,7 +31,9 @@ struct TurretJoints(Vec<Entity>);
 /// Which means that joint's parent's Y axis should oriented in the direction of the intended joint's rotation.
 /// In other words, Joint always rotates around parent's Y.
 #[derive(Component)]
-struct Joint;
+struct Joint {
+    rotation_speed: f32,
+}
 
 #[derive(Bundle)]
 struct TurretBundle {
@@ -56,13 +62,14 @@ fn create_turret(
     mut ev_create_turret: EventReader<CreateTurretEvent>,
 ) {
     for ev in ev_create_turret.iter() {
+        let rotation_speed = ev.rotation_speed;
         commands
             .spawn_bundle(SceneBundle {
                 scene: turret_scene.0.clone(),
-                transform: ev.0,
+                transform: ev.transform,
                 ..default()
             })
-            .insert(SetupRequired::new(|commands, entities| {
+            .insert(SetupRequired::new(move |commands, entities| {
                 let mut joints = vec![];
                 entities
                     // Skip entities with `Handle<Mesh>` as we should operate only with GLTF's Nodes
@@ -74,11 +81,11 @@ fn create_turret(
                             commands.entity(entity).insert(PrimaryWeapon);
                             head
                         } else if name.starts_with("Body") {
-                            commands.entity(entity).insert(Joint);
+                            commands.entity(entity).insert(Joint { rotation_speed });
                             joints.push(entity);
                             head
                         } else if name.starts_with("Head") {
-                            commands.entity(entity).insert(Joint);
+                            commands.entity(entity).insert(Joint { rotation_speed });
                             joints.push(entity);
                             Some(entity) // set "Head" entity
                         } else {
@@ -97,7 +104,7 @@ fn create_turret(
 }
 
 fn dispatch_targets(target: Query<Entity, With<LockedTarget>>, mut turrets: Query<&mut GunLayer>) {
-    let Ok(target) = target.get_single() else {
+    let Some(target) = target.iter().next() else {
         return; // nothing to do
     };
 
@@ -109,7 +116,8 @@ fn dispatch_targets(target: Query<Entity, With<LockedTarget>>, mut turrets: Quer
 fn turret_oritentation(
     turrets: Query<(&GlobalTransform, &GunLayer, &TurretJoints)>,
     transforms: Query<(&GlobalTransform, Option<&Velocity>)>,
-    mut joints: Query<(&mut Transform, &Parent), With<Joint>>,
+    mut joints: Query<(&mut Transform, &Parent, &Joint)>,
+    time: Res<Time>,
 ) {
     for (turret, target, turret_joints) in turrets.iter() {
         let Some((target, velocity)) = target.0.and_then(|e| transforms.get(e).ok()) else {
@@ -136,14 +144,18 @@ fn turret_oritentation(
         .to_axis_angle();
 
         for joint in turret_joints.0.iter() {
-            let (mut joint, parent) = joints.get_mut(*joint).unwrap();
+            let (mut joint, parent, cfg) = joints.get_mut(*joint).unwrap();
+
             // As was mentioned in the `Joint` doc, they rotates around parent's Y axis
             let pivot = if let Ok((parent, _)) = transforms.get(parent.get()) {
                 parent.up()
             } else {
                 Vec3::Y
             };
-            joint.rotate_y(pivot.dot(axis) * angle);
+            joint.rotate_y((pivot.dot(axis) * angle).clamp(
+                -cfg.rotation_speed * time.delta_seconds(),
+                cfg.rotation_speed * time.delta_seconds(),
+            ));
         }
     }
 }

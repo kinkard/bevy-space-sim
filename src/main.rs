@@ -99,19 +99,20 @@ fn setup_env(
         .insert(Name::new("Ground"));
 
     let pos = 25.0;
-    for (x, z) in [
-        (-pos, -pos),
-        (0.0, -pos),
-        (pos, -pos),
-        (-pos, 0.0),
-        (pos, 0.0),
-        (-pos, pos),
-        (0.0, pos),
-        (pos, pos),
+    for (x, z, speed) in [
+        (-pos, -pos, 30.0_f32),
+        (0.0, -pos, 60.0_f32),
+        (pos, -pos, 90.0_f32),
+        (-pos, 0.0, 120.0_f32),
+        (pos, 0.0, 150.0_f32),
+        (-pos, pos, 180.0_f32),
+        (0.0, pos, 210.0_f32),
+        (pos, pos, 240.0_f32),
     ] {
-        ev_create_turret.send(turret::CreateTurretEvent(Transform::from_translation(
-            Vec3::new(x, -3.0, z),
-        )));
+        ev_create_turret.send(turret::CreateTurretEvent {
+            transform: Transform::from_translation(Vec3::new(x, -3.0, z)),
+            rotation_speed: speed.to_radians(),
+        });
     }
 
     // Create a light
