@@ -306,7 +306,10 @@ fn secondary_weapon_shoot(
     }
 }
 
+/// Annotates current locked target.
+/// For more details about "SparseSet" see https://bevy-cheatbook.github.io/patterns/component-storage.html
 #[derive(Component)]
+#[component(storage = "SparseSet")]
 pub struct LockedTarget;
 
 fn select_target(
@@ -333,7 +336,7 @@ fn select_target(
 
             // Remove previous target selection if any.
             // This order also unselects previous target on a repeated select.
-            if let Ok(prev_target) = target.get_single() {
+            for prev_target in target.iter() {
                 commands
                     .entity(prev_target)
                     .remove::<LockedTarget>()
