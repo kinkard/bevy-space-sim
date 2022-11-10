@@ -7,6 +7,7 @@ use rand::Rng;
 pub mod player;
 pub mod projectile;
 pub mod scene_setup;
+pub mod skybox;
 pub mod turret;
 
 fn main() {
@@ -20,6 +21,7 @@ fn main() {
         })
         .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(scene_setup::SceneSetupPlugin)
+        .add_plugin(skybox::SkyboxPlugin)
         .add_plugin(projectile::ProjectilePlugin)
         .add_plugin(player::PlayerPlugin)
         .add_plugin(turret::TurretPlugin)
@@ -37,8 +39,6 @@ fn main() {
 
 fn setup_env(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut ev_create_turret: EventWriter<turret::CreateTurretEvent>,
     asset_server: Res<AssetServer>,
 ) {
@@ -66,47 +66,11 @@ fn setup_env(
         //.insert(projectile::HitPoints::new(1000))
         .insert(Name::new("Spaceship"));
 
-    // Create a sky
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                // We make the dimensions negative because we want to invert the direction
-                // of light the mesh diffuses (invert the normals).
-                radius: -250.0,
-                ..default()
-            })),
-            // We make the mesh as rough as possible to avoid metallic-like reflections
-            material: materials.add(StandardMaterial {
-                perceptual_roughness: 1.0,
-                reflectance: 0.0,
-                emissive: Color::rgb(0.0, 0.05, 0.5),
-                ..default()
-            }),
-            ..default()
-        })
-        .insert(Name::new("Sky"));
-
-    //Create a ground
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 200.0 })),
-            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-            ..default()
-        })
-        .insert(Collider::halfspace(Vec3::Y).unwrap())
-        .insert(Restitution::coefficient(1.0))
-        .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -3.0, 0.0)))
-        .insert(Name::new("Ground"));
-
     let pos = 25.0;
     for (x, z, speed) in [
         (-pos, -pos, 30.0_f32),
-        (0.0, -pos, 60.0_f32),
         (pos, -pos, 90.0_f32),
-        (-pos, 0.0, 120.0_f32),
-        (pos, 0.0, 150.0_f32),
         (-pos, pos, 180.0_f32),
-        (0.0, pos, 210.0_f32),
         (pos, pos, 240.0_f32),
     ] {
         ev_create_turret.send(turret::CreateTurretEvent {
