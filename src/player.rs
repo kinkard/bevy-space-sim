@@ -168,25 +168,22 @@ fn move_player(
     }
 
     // Enable mouse guidance if Space is pressed
-    let window = windows.primary_mut();
     if keys.just_released(KeyCode::Space) {
         *mouse_guidance = !*mouse_guidance;
     }
 
     let click_guidance = !egui.ctx_mut().is_using_pointer() && mouse.pressed(MouseButton::Left);
     if *mouse_guidance || click_guidance {
+        let window = windows.primary_mut();
         // egui sets it's own icon, so we override cursor it on every frame
         window.set_cursor_icon(if *mouse_guidance {
             CursorIcon::Crosshair
         } else {
             CursorIcon::Default
         });
-        let center = Vec2 {
-            x: window.width() / 2.0,
-            y: window.height() / 2.0,
-        };
 
         if let Some(pos) = window.cursor_position() {
+            let center = Vec2::new(window.width() / 2.0, window.height() / 2.0);
             let offset = center - pos;
             // Safe zone around screen center for mouse_guidance mode
             if click_guidance || offset.length_squared() > 400.0 {
