@@ -24,7 +24,11 @@
       "env": {
         // get this path from 'rustc --print target-libdir'
         // to workaround debug problems with bevy dynamic linkage
-        "DYLD_LIBRARY_PATH": "${userHome}/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/lib"
+        "DYLD_LIBRARY_PATH": "${userHome}/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/lib",
+        // Required for correct assset loading in the debug. When the application is run through Cargo, then
+        // `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
+        // See https://doc.rust-lang.org/cargo/reference/environment-variables.html for more details.
+        "CARGO_MANIFEST_DIR": "${workspaceFolder}",
       }
     }
   ]
