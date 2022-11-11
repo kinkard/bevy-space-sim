@@ -1,4 +1,4 @@
-use bevy::{pbr::wireframe, prelude::*};
+use bevy::{input::mouse::MouseWheel, pbr::wireframe, prelude::*, render::camera};
 use bevy_rapier3d::prelude::*;
 
 use crate::projectile::{self, Damage, HitPoints};
@@ -199,6 +199,24 @@ fn move_player(
     transform.translation += translation;
 }
 
+fn zoom_camera(
+    mut scroll: EventReader<MouseWheel>,
+    mut projection: Query<&mut camera::Projection, With<Camera3d>>,
+) {
+    let delta_zoom: f32 = scroll.iter().map(|e| e.y).sum();
+    if delta_zoom == 0.0 {
+        return;
+    }
+
+    if let Ok(mut projection) = projection.get_single_mut() {
+        if let camera::Projection::Perspective(projection) = projection.as_mut() {
+            projection.fov = (projection.fov - delta_zoom * 0.001)
+                // restrict FOV
+                .clamp(std::f32::consts::PI / 32.0, std::f32::consts::FRAC_PI_4);
+        }
+    }
+}
+
 fn primary_weapon_shoot(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -376,6 +394,7 @@ impl Plugin for PlayerPlugin {
         .add_system(select_target)
         .add_system(show_selected_target_info)
         .add_system(move_player)
+        .add_system(zoom_camera)
         .add_system(primary_weapon_shoot)
         .add_system(secondary_weapon_shoot);
     }
