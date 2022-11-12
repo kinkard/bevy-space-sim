@@ -27,6 +27,7 @@ use bevy::{ecs::world::EntityRef, prelude::*, scene::SceneInstance};
 ///     }));
 /// ```
 #[derive(Component)]
+#[component(storage = "SparseSet")]
 pub struct SetupRequired(
     Box<dyn Fn(&mut Commands, std::slice::Iter<EntityRef>) + Send + Sync + 'static>,
 );
@@ -39,7 +40,7 @@ impl SetupRequired {
     }
 }
 
-pub fn setup_scene(
+fn setup_scene(
     scenes: Query<(Entity, &SceneInstance, &SetupRequired)>,
     scene_manager: Res<SceneSpawner>,
     world: &World,
