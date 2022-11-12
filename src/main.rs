@@ -11,15 +11,15 @@ pub mod skybox;
 pub mod turret;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins)
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .insert_resource(RapierConfiguration {
             gravity: Vec3::ZERO, // disable gravity at all
             ..default()
         })
-        .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(scene_setup::SceneSetupPlugin)
         .add_plugin(skybox::SkyboxPlugin)
         .add_plugin(projectile::ProjectilePlugin)
@@ -33,8 +33,12 @@ fn main() {
         )
         .insert_resource(Msaa { samples: 4 })
         .add_system(update_msaa)
-        .add_system(bevy::window::close_on_esc)
-        .run();
+        .add_system(bevy::window::close_on_esc);
+
+    #[cfg(debug_assertions)]
+    app.add_plugin(RapierDebugRenderPlugin::default());
+
+    app.run();
 }
 
 fn setup_env(
