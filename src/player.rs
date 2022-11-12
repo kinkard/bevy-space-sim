@@ -1,18 +1,17 @@
 use bevy::{input::mouse::MouseWheel, pbr::wireframe, prelude::*, render::camera};
 use bevy_rapier3d::prelude::*;
 
-use crate::projectile::{self, Damage, HitPoints};
+use crate::{
+    gun,
+    projectile::{self, Damage, HitPoints},
+    weapon,
+};
 
 #[derive(Component)]
 struct Player;
 
-#[derive(Default)]
-struct WeaponState {
-    fire_calldown: Timer,
-}
-
 #[derive(Component)]
-pub struct PrimaryWeapon;
+struct PrimaryWeapon;
 
 #[derive(Component)]
 struct SecondaryWeapon;
@@ -27,21 +26,25 @@ fn setup_player(mut commands: Commands) {
         .insert(Player)
         .insert(Name::new("Player"))
         .with_children(|parent| {
+            let rate_of_fire = 6.7;
             parent
                 .spawn()
                 .insert(PrimaryWeapon)
+                .insert_bundle(weapon::MachineGun::new(rate_of_fire))
                 .insert_bundle(TransformBundle::from(Transform::from_translation(
                     -Vec3::Z + 0.2 * Vec3::X,
                 )));
             parent
                 .spawn()
                 .insert(PrimaryWeapon)
+                .insert_bundle(weapon::MachineGun::new(rate_of_fire))
                 .insert_bundle(TransformBundle::from(Transform::from_translation(
                     -Vec3::Z - 0.2 * Vec3::X,
                 )));
             parent
                 .spawn()
                 .insert(PrimaryWeapon)
+                .insert_bundle(weapon::MachineGun::new(rate_of_fire))
                 .insert_bundle(TransformBundle::from(Transform::from_translation(
                     -Vec3::Z - 0.2 * Vec3::Y,
                 )));
@@ -218,53 +221,12 @@ fn zoom_camera(
 }
 
 fn primary_weapon_shoot(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     keys: Res<Input<KeyCode>>,
-    query: Query<&GlobalTransform, With<PrimaryWeapon>>,
-    mut weapon_state: ResMut<WeaponState>,
-    time: Res<Time>,
+    mut triggers: Query<&mut gun::Trigger, With<PrimaryWeapon>>,
 ) {
-    // TODO: find a better place to update weapon's timers
-    weapon_state.fire_calldown.tick(time.delta());
-
-    // Small and fast projectiles, prototype for bullets
-    if keys.pressed(KeyCode::LAlt) && weapon_state.fire_calldown.just_finished() {
-        for transform in query.iter() {
-            // Create a small bullet
-            let radius = 0.02;
-            commands.spawn_bundle(projectile::ProjectileBundle {
-                collider: Collider::capsule_y(8.0 * radius, radius),
-                mesh_material: PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Capsule {
-                        radius,
-                        depth: 16.0 * radius,
-                        ..default()
-                    })),
-                    material: materials.add(StandardMaterial {
-                        base_color: Color::WHITE,
-                        unlit: true,
-                        // exclude this material from shadows calculations
-                        ..default()
-                    }),
-                    transform: Transform {
-                        translation: transform.translation(),
-                        // `Collider::capsule_y` and `shape::Capsule` are both aligned with Vec3::Y axis
-                        rotation: Quat::from_rotation_arc(Vec3::Y, transform.forward()),
-                        scale: Vec3::ONE,
-                    },
-                    ..default()
-                },
-                velocity: Velocity {
-                    linvel: transform.forward() * 100.0,
-                    ..default()
-                },
-                lifetime: projectile::Lifetime(10.0),
-                explosion: projectile::ExplosionEffect::Small,
-                damage: Damage(1),
-                ..default()
-            });
+    if keys.pressed(KeyCode::LAlt) {
+        for mut trigger in triggers.iter_mut() {
+            trigger.pull();
         }
     }
 }
@@ -279,7 +241,7 @@ fn secondary_weapon_shoot(
     // big and slow projectile, prototype for rocket
     if keys.just_pressed(KeyCode::LControl) {
         for transform in query.iter() {
-            let radius = 0.1;
+            let radius = 0.2;
             commands
                 .spawn_bundle(projectile::ProjectileBundle {
                     mesh_material: PbrBundle {
@@ -385,17 +347,14 @@ fn show_selected_target_info(
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(WeaponState {
-            fire_calldown: Timer::from_seconds(0.1, true),
-        })
-        .add_startup_system(setup_player)
-        .add_startup_system(setup_hud)
-        .add_plugin(wireframe::WireframePlugin)
-        .add_system(select_target)
-        .add_system(show_selected_target_info)
-        .add_system(move_player)
-        .add_system(zoom_camera)
-        .add_system(primary_weapon_shoot)
-        .add_system(secondary_weapon_shoot);
+        app.add_startup_system(setup_player)
+            .add_startup_system(setup_hud)
+            .add_plugin(wireframe::WireframePlugin)
+            .add_system(select_target)
+            .add_system(show_selected_target_info)
+            .add_system(move_player)
+            .add_system(zoom_camera)
+            .add_system(primary_weapon_shoot)
+            .add_system(secondary_weapon_shoot);
     }
 }

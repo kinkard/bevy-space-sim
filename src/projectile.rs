@@ -5,7 +5,7 @@ use bevy_hanabi::*;
 use bevy_rapier3d::prelude::*;
 
 /// Entity lifetime in seconds, after which entity should be destroyed
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Lifetime(pub f32);
 
 fn lifetime(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &mut Lifetime)>) {
@@ -17,7 +17,7 @@ fn lifetime(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Damage(pub u32);
 
 #[derive(Component)]

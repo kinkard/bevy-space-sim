@@ -1,10 +1,7 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::Velocity;
+use bevy_rapier3d::prelude::*;
 
-use crate::{
-    player::{LockedTarget, PrimaryWeapon}, // todo: replace by own
-    scene_setup::SetupRequired,
-};
+use crate::{gun, player, scene_setup::SetupRequired, weapon};
 
 /// Emit this event to create a turret with specified parameters
 pub struct CreateTurretEvent {
@@ -13,12 +10,18 @@ pub struct CreateTurretEvent {
     pub rotation_speed: f32,
 }
 
+/// Turret's locked target.
+#[derive(Component, Default)]
+struct LockedTarget(Option<Entity>);
+
 /// Annotates an entity to be used for building direction vector to the specified target.
 /// Turret orientation system rotates joints (entities with `Joint` component) to
 /// orient entity with `GunLayer` component towards specified target if provided.
-/// Should be in the same entity that contains `TurretJoints` component.
 #[derive(Component, Default)]
-struct GunLayer(Option<Entity>);
+struct GunLayer {
+    axis: Vec3,
+    angle: f32,
+}
 
 /// Links turret main entity with joints that will be used for turret orientation.
 /// This component should be assigned to the same entity that contains `GunLayer` component.
@@ -37,6 +40,7 @@ struct Joint {
 
 #[derive(Bundle)]
 struct TurretBundle {
+    target: LockedTarget,
     gun_layer: GunLayer,
     joints: TurretJoints,
 }
@@ -44,7 +48,8 @@ struct TurretBundle {
 impl TurretBundle {
     fn new(joints: Vec<Entity>) -> Self {
         Self {
-            gun_layer: GunLayer(None),
+            target: LockedTarget::default(),
+            gun_layer: GunLayer::default(),
             joints: TurretJoints(joints),
         }
     }
@@ -71,6 +76,7 @@ fn create_turret(
             })
             .insert(SetupRequired::new(move |commands, entities| {
                 let mut joints = vec![];
+                let mut barrels = vec![];
                 entities
                     // Skip entities with `Handle<Mesh>` as we should operate only with GLTF's Nodes
                     .filter(|e| e.get::<Handle<Mesh>>().is_none())
@@ -78,7 +84,8 @@ fn create_turret(
                     // fold() allows us to find "Head" node and insert all joints into it once all of them are found
                     .fold(None, |head, (entity, name)| {
                         if name.starts_with("Muzzle") {
-                            commands.entity(entity).insert(PrimaryWeapon);
+                            commands.entity(entity).insert(gun::Barrel);
+                            barrels.push(entity);
                             head
                         } else if name.starts_with("Body") {
                             commands.entity(entity).insert(Joint { rotation_speed });
@@ -95,7 +102,8 @@ fn create_turret(
                     .and_then(|head| {
                         commands
                             .entity(head)
-                            .insert_bundle(TurretBundle::new(joints));
+                            .insert_bundle(TurretBundle::new(joints))
+                            .insert_bundle(weapon::FlakCannon::new(barrels, 5.0));
                         Some(head)
                     });
             }))
@@ -103,7 +111,10 @@ fn create_turret(
     }
 }
 
-fn dispatch_targets(target: Query<Entity, With<LockedTarget>>, mut turrets: Query<&mut GunLayer>) {
+fn select_target(
+    target: Query<Entity, With<player::LockedTarget>>,
+    mut turrets: Query<&mut LockedTarget>,
+) {
     let Some(target) = target.iter().next() else {
         return; // nothing to do
     };
@@ -113,16 +124,20 @@ fn dispatch_targets(target: Query<Entity, With<LockedTarget>>, mut turrets: Quer
     }
 }
 
-fn turret_oritentation(
-    turrets: Query<(&GlobalTransform, &GunLayer, &TurretJoints)>,
-    transforms: Query<(&GlobalTransform, Option<&Velocity>)>,
-    mut joints: Query<(&mut Transform, &Parent, &Joint)>,
-    time: Res<Time>,
+fn gun_layer(
+    mut turrets: Query<(
+        &GlobalTransform,
+        &LockedTarget,
+        &mut GunLayer,
+        &mut gun::Trigger,
+    )>,
+    targets: Query<(&GlobalTransform, Option<&Velocity>)>,
 ) {
-    for (turret, target, turret_joints) in turrets.iter() {
-        let Some((target, velocity)) = target.0.and_then(|e| transforms.get(e).ok()) else {
+    for (turret, target, mut gun_layer, mut gun_trigger) in turrets.iter_mut() {
+        let Some((target, velocity)) = target.0.and_then(|e| targets.get(e).ok()) else {
             // Target is not selected or not exists anymore - nothing to do.
             // TODO: implement turret parking in a default position after some delay
+            gun_layer.angle = 0.0;
             continue;
         };
 
@@ -136,23 +151,42 @@ fn turret_oritentation(
             target.translation()
         };
 
+        let to_target = target_pos - turret.translation();
+        let distance = to_target.length();
         // Required rotation to orient turret towards `target_pos`
-        let (axis, angle) = Quat::from_rotation_arc(
-            turret.forward(),
-            (target_pos - turret.translation()).normalize(),
-        )
-        .to_axis_angle();
+        (gun_layer.axis, gun_layer.angle) =
+            Quat::from_rotation_arc(turret.forward(), to_target * distance.recip()).to_axis_angle();
+
+        let threshold = if distance > 100.0 {
+            // let's say for simplicity that target is 10m size
+            10.0 / distance
+        } else {
+            0.3
+        };
+        if gun_layer.angle < threshold {
+            gun_trigger.pull();
+        }
+    }
+}
+
+fn orientation(
+    turrets: Query<(&GunLayer, &TurretJoints)>,
+    transforms: Query<&GlobalTransform, With<Children>>,
+    time: Res<Time>,
+    mut joints: Query<(&mut Transform, &Parent, &Joint)>,
+) {
+    for (gun_layer, turret_joints) in turrets.iter() {
+        if gun_layer.angle == 0.0 {
+            continue;
+        }
 
         for joint in turret_joints.0.iter() {
             let (mut joint, parent, cfg) = joints.get_mut(*joint).unwrap();
 
             // As was mentioned in the `Joint` doc, they rotates around parent's Y axis
-            let pivot = if let Ok((parent, _)) = transforms.get(parent.get()) {
-                parent.up()
-            } else {
-                Vec3::Y
-            };
-            joint.rotate_y((pivot.dot(axis) * angle).clamp(
+            let pivot = transforms.get(parent.get()).unwrap().up();
+
+            joint.rotate_y((pivot.dot(gun_layer.axis) * gun_layer.angle).clamp(
                 -cfg.rotation_speed * time.delta_seconds(),
                 cfg.rotation_speed * time.delta_seconds(),
             ));
@@ -166,7 +200,8 @@ impl Plugin for TurretPlugin {
         app.add_startup_system(load_turret_scene)
             .add_event::<CreateTurretEvent>()
             .add_system(create_turret)
-            .add_system(dispatch_targets)
-            .add_system(turret_oritentation);
+            .add_system(select_target)
+            .add_system(gun_layer)
+            .add_system(orientation.after(gun_layer));
     }
 }

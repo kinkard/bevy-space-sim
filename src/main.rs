@@ -4,11 +4,13 @@ use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use rand::Rng;
 
+pub mod gun;
 pub mod player;
 pub mod projectile;
 pub mod scene_setup;
 pub mod skybox;
 pub mod turret;
+pub mod weapon;
 
 fn main() {
     let mut app = App::new();
@@ -23,6 +25,7 @@ fn main() {
         .add_plugin(scene_setup::SceneSetupPlugin)
         .add_plugin(skybox::SkyboxPlugin)
         .add_plugin(projectile::ProjectilePlugin)
+        .add_plugin(gun::GunPlugin)
         .add_plugin(player::PlayerPlugin)
         .add_plugin(turret::TurretPlugin)
         .add_startup_system(setup_env)
