@@ -205,7 +205,12 @@ fn move_player(
 fn zoom_camera(
     mut scroll: EventReader<MouseWheel>,
     mut projection: Query<&mut camera::Projection, With<Camera3d>>,
+    mut egui: ResMut<bevy_inspector_egui::bevy_egui::EguiContext>,
 ) {
+    if egui.ctx_mut().wants_pointer_input() {
+        return;
+    }
+
     let delta_zoom: f32 = scroll.iter().map(|e| e.y).sum();
     if delta_zoom == 0.0 {
         return;
