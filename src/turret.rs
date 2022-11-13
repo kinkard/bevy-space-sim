@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::{gun, player, scene_setup::SetupRequired, weapon};
+use crate::{
+    collider_setup, gun, player, projectile::HitPoints, scene_setup::SetupRequired, weapon,
+};
 
 /// Emit this event to create a turret with specified parameters
 pub struct CreateTurretEvent {
@@ -13,6 +15,10 @@ pub struct CreateTurretEvent {
 /// Turret's locked target.
 #[derive(Component, Default)]
 struct LockedTarget(Option<Entity>);
+
+/// Turret's white list that should be never targeted
+#[derive(Component, Default)]
+struct IgnoreTargets(Vec<Entity>);
 
 /// Annotates an entity to be used for building direction vector to the specified target.
 /// Turret orientation system rotates joints (entities with `Joint` component) to
@@ -75,37 +81,50 @@ fn create_turret(
                 ..default()
             })
             .insert(SetupRequired::new(move |commands, entities| {
+                let mut collider_parts = vec![];
                 let mut joints = vec![];
                 let mut barrels = vec![];
+
+                let mut head: Option<Entity> = None;
+                let mut body: Option<Entity> = None;
+
                 entities
                     // Skip entities with `Handle<Mesh>` as we should operate only with GLTF's Nodes
                     .filter(|e| e.get::<Handle<Mesh>>().is_none())
                     .filter_map(|e| e.get::<Name>().map(|name| (e.id(), name)))
-                    // fold() allows us to find "Head" node and insert all joints into it once all of them are found
-                    .fold(None, |head, (entity, name)| {
+                    .for_each(|(entity, name)| {
                         if name.starts_with("Muzzle") {
                             commands.entity(entity).insert(gun::Barrel);
                             barrels.push(entity);
-                            head
                         } else if name.starts_with("Body") {
                             commands.entity(entity).insert(Joint { rotation_speed });
                             joints.push(entity);
-                            head
+                            collider_parts.push(entity);
+                            body = Some(entity);
                         } else if name.starts_with("Head") {
                             commands.entity(entity).insert(Joint { rotation_speed });
                             joints.push(entity);
-                            Some(entity) // set "Head" entity
-                        } else {
-                            head
+                            collider_parts.push(entity);
+                            head = Some(entity);
                         }
-                    })
-                    .and_then(|head| {
-                        commands
-                            .entity(head)
-                            .insert_bundle(TurretBundle::new(joints))
-                            .insert_bundle(weapon::FlakCannon::new(barrels, 5.0));
-                        Some(head)
                     });
+
+                head.map(|head| {
+                    commands
+                        .entity(head)
+                        .insert_bundle(TurretBundle::new(joints))
+                        .insert_bundle(weapon::FlakCannon::new(barrels, 5.0));
+
+                    body.map(|body| {
+                        commands.entity(head).insert(IgnoreTargets(vec![body]));
+                    });
+                });
+                body.map(|body| {
+                    commands
+                        .entity(body)
+                        .insert(HitPoints::new(200))
+                        .insert(collider_setup::SetupRequired::new(collider_parts));
+                });
             }))
             .insert(Name::new("Turret"));
     }
@@ -113,14 +132,16 @@ fn create_turret(
 
 fn select_target(
     target: Query<Entity, With<player::LockedTarget>>,
-    mut turrets: Query<&mut LockedTarget>,
+    mut turrets: Query<(&mut LockedTarget, Option<&IgnoreTargets>)>,
 ) {
     let Some(target) = target.iter().next() else {
         return; // nothing to do
     };
 
-    for mut turret in turrets.iter_mut() {
-        turret.0 = Some(target);
+    for (mut turret, ignore) in turrets.iter_mut() {
+        if !matches!(ignore, Some(ignore) if ignore.0.contains(&target)) {
+            turret.0 = Some(target);
+        }
     }
 }
 
