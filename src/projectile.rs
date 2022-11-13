@@ -20,7 +20,8 @@ fn lifetime(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &
 #[derive(Component, Clone)]
 pub struct Damage(pub u32);
 
-#[derive(Component)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
 pub struct HitPoints {
     maximum: u32,
     current: u32,
@@ -305,6 +306,7 @@ impl Plugin for ProjectilePlugin {
             .add_startup_system(setup)
             .add_system(lifetime)
             .add_system(hit_collision)
-            .add_system(explosive_collision);
+            .add_system(explosive_collision)
+            .register_type::<HitPoints>();
     }
 }
