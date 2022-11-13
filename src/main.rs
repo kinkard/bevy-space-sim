@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::scene::SceneInstance;
 use bevy::time::FixedTimestep;
 use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
@@ -60,25 +61,32 @@ fn setup_env(
         .insert_bundle(TransformBundle::from(Transform::from_scale(
             2.0 * Vec3::ONE, // adjust model size for realizm
         )))
-        .insert(Name::new("Spaceship"))
         .insert(scene_setup::SetupRequired::new(
             move |commands, entities| {
+                let mut root: Option<Entity> = None;
+                let mut mesh_source: Option<Entity> = None;
                 for entity in entities {
-                    if let Some(mesh) = entity.get::<Handle<Mesh>>() {
-                        // TODO: Move collider and HitPoints to the root entity
-                        commands
-                            .entity(entity.id())
-                            .insert(AsyncCollider {
-                                handle: mesh.clone(),
-                                shape: ComputedColliderShape::ConvexDecomposition(
-                                    VHACDParameters::default(),
-                                ),
-                            })
-                            .insert(projectile::HitPoints::new(2000));
+                    if entity.get::<SceneInstance>().is_some() {
+                        root = Some(entity.id());
+                    }
+                    if entity.get::<Handle<Mesh>>().is_some() {
+                        mesh_source = Some(entity.id());
                     }
                 }
+
+                commands
+                    .entity(root.unwrap())
+                    .insert(collider_setup::ConvexDecomposition {
+                        mesh_source: mesh_source.unwrap(),
+                        parameters: VHACDParameters {
+                            concavity: 0.06,
+                            ..default()
+                        },
+                    });
             },
-        ));
+        ))
+        .insert(projectile::HitPoints::new(2000))
+        .insert(Name::new("Spaceship"));
 
     let pos = 25.0;
     for (x, z, speed) in [

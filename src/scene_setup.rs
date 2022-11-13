@@ -50,7 +50,9 @@ fn setup_scene(
         if let Some(entities) = scene_manager.iter_instance_entities(**instance) {
             setup.0(
                 &mut commands,
-                entities
+                [entity] // add the root entity to make possible to modify once scene is loaded
+                    .into_iter()
+                    .chain(entities)
                     .filter_map(|e| world.get_entity(e))
                     // collect() + iter() allows to handle lifetime problems and
                     // workarounds `Box<dyn Iterator<Item = EntityRef>>` in function type declaration

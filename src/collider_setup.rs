@@ -1,8 +1,10 @@
 use bevy::{
-    ecs::change_detection::DetectChanges, math::Affine3A, prelude::*,
-    render::mesh::VertexAttributeValues,
+    ecs::change_detection::DetectChanges,
+    math::Affine3A,
+    prelude::*,
+    render::mesh::{Indices, VertexAttributeValues},
 };
-use bevy_rapier3d::prelude::Collider;
+use bevy_rapier3d::prelude::{Collider, VHACDParameters};
 
 /// Annotates an entity where a new collider should be added.
 /// A new collider is computed as a convex hull that covers all meshes of `collider_parts` or theirs
@@ -10,12 +12,22 @@ use bevy_rapier3d::prelude::Collider;
 /// Children are traversed only if entity has no attached meshes, like GLTF Node.
 #[derive(Component)]
 #[component(storage = "SparseSet")]
-pub struct SetupRequired(Vec<Entity>);
+pub struct ConvexHull(Vec<Entity>);
 
-impl SetupRequired {
+impl ConvexHull {
     pub fn new(collider_parts: Vec<Entity>) -> Self {
         Self(collider_parts)
     }
+}
+
+/// Annotates an entity where a new collider should be added.
+/// A new collider is computed as a convex decomposition from mesh, taken from referenced entity.
+/// This component use entity instead of Handle<Mesh> to resolve transform, applied to the mesh.
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+pub struct ConvexDecomposition {
+    pub mesh_source: Entity,
+    pub parameters: VHACDParameters,
 }
 
 fn extract_mesh_vertices(mesh: &Mesh) -> Option<Vec<Vec3>> {
@@ -30,13 +42,25 @@ fn extract_mesh_vertices(mesh: &Mesh) -> Option<Vec<Vec3>> {
     }
 }
 
-fn setup_collider(
+fn extract_mesh_indices(mesh: &Mesh) -> Option<Vec<[u32; 3]>> {
+    match mesh.indices() {
+        Some(Indices::U16(idx)) => Some(
+            idx.chunks_exact(3)
+                .map(|i| [i[0] as u32, i[1] as u32, i[2] as u32])
+                .collect(),
+        ),
+        Some(Indices::U32(idx)) => Some(idx.chunks_exact(3).map(|i| [i[0], i[1], i[2]]).collect()),
+        None => None,
+    }
+}
+
+fn convex_hull(
     mut commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
-    to_setup: Query<(Entity, &SetupRequired, &GlobalTransform)>,
+    to_setup: Query<(Entity, &ConvexHull, &GlobalTransform)>,
     with_children: Query<&Children>,
     with_meshes: Query<(&Handle<Mesh>, &GlobalTransform)>,
-    mut with_transform: Query<&mut Transform, With<SetupRequired>>,
+    mut with_transform: Query<&mut Transform, With<ConvexHull>>,
 ) {
     let extract_vertices = |mesh, affine: Affine3A| {
         // todo: consider Vec3 -> Vec3A and sort() + dedup() to speed up verices processing
@@ -82,13 +106,49 @@ fn setup_collider(
             }
         }
 
-        commands.entity(entity).remove::<SetupRequired>();
+        commands.entity(entity).remove::<ConvexHull>();
+    }
+}
+
+fn convex_decomposition(
+    mut commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    to_setup: Query<(Entity, &ConvexDecomposition, &GlobalTransform)>,
+    with_meshes: Query<(&Handle<Mesh>, &GlobalTransform)>,
+    mut with_transform: Query<&mut Transform, With<ConvexDecomposition>>,
+) {
+    for (entity, decomposition, transform) in to_setup.iter() {
+        let (mesh, source_transform) = with_meshes.get(decomposition.mesh_source).unwrap();
+        let mesh = meshes.get(mesh).unwrap();
+        let mut vertices = extract_mesh_vertices(mesh).unwrap();
+        let indices = extract_mesh_indices(mesh).unwrap();
+
+        let to_global = source_transform.affine();
+        let to_local = transform.affine().inverse();
+        for v in vertices.iter_mut() {
+            *v = to_local.transform_point3(to_global.transform_point3(*v));
+        }
+
+        commands
+            .entity(entity)
+            .insert(Collider::convex_decomposition_with_params(
+                &vertices,
+                &indices,
+                &decomposition.parameters,
+            ));
+
+        // Manual set `Changed` to the entity transform to trigger added collider position recalculation
+        if let Ok(mut transform) = with_transform.get_mut(entity) {
+            transform.set_changed();
+        }
+
+        commands.entity(entity).remove::<ConvexDecomposition>();
     }
 }
 
 pub struct ColliderSetupPlugin;
 impl Plugin for ColliderSetupPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(setup_collider);
+        app.add_system(convex_hull).add_system(convex_decomposition);
     }
 }

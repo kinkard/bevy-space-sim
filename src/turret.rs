@@ -123,7 +123,7 @@ fn create_turret(
                     commands
                         .entity(body)
                         .insert(HitPoints::new(200))
-                        .insert(collider_setup::SetupRequired::new(collider_parts));
+                        .insert(collider_setup::ConvexHull::new(collider_parts));
                 });
             }))
             .insert(Name::new("Turret"));
