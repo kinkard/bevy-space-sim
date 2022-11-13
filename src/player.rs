@@ -299,6 +299,8 @@ fn select_target(
     rapier_context: Res<RapierContext>,
     camera: Query<&Transform, With<Camera>>,
     target: Query<Entity, With<LockedTarget>>,
+    children: Query<&Children>,
+    with_mesh: Query<&Handle<Mesh>>,
     keys: Res<Input<KeyCode>>,
 ) {
     if keys.just_pressed(KeyCode::T) {
@@ -310,19 +312,34 @@ fn select_target(
             false,
             QueryFilter::default(),
         ) {
+            fn iter_hierarchy(
+                entity: Entity,
+                children_query: &Query<&Children>,
+                f: &mut impl FnMut(Entity),
+            ) {
+                (f)(entity);
+                if let Ok(children) = children_query.get(entity) {
+                    for child in children.iter().copied() {
+                        iter_hierarchy(child, children_query, f);
+                    }
+                }
+            }
+
             // Select a new target and highlight it via Wireframe
-            commands
-                .entity(entity)
-                .insert(LockedTarget)
-                .insert(wireframe::Wireframe);
+            commands.entity(entity).insert(LockedTarget);
+            iter_hierarchy(entity, &children, &mut |entity| {
+                if with_mesh.get(entity).is_ok() {
+                    commands.entity(entity).insert(wireframe::Wireframe);
+                }
+            });
 
             // Remove previous target selection if any.
             // This order also unselects previous target on a repeated select.
             for prev_target in target.iter() {
-                commands
-                    .entity(prev_target)
-                    .remove::<LockedTarget>()
-                    .remove::<wireframe::Wireframe>();
+                commands.entity(prev_target).remove::<LockedTarget>();
+                iter_hierarchy(prev_target, &children, &mut |entity| {
+                    commands.entity(entity).remove::<wireframe::Wireframe>();
+                });
             }
         }
     }
