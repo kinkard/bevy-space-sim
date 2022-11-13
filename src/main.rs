@@ -51,29 +51,34 @@ fn setup_env(
     mut ev_create_turret: EventWriter<turret::CreateTurretEvent>,
     asset_server: Res<AssetServer>,
 ) {
-    // Space ship with a collision model, computed by V-HACD algorithm based on model shape
-    // N.B.: Due to async collider loading implementation and it's isolation from bevy,
-    // any `TransformBundle` will be applied only on a visual model, but not to the collider.
-    // Consider https://github.com/nicopap/bevy-scene-hook to use model's mesh once it is loaded or
-    // manually create a `ColliderBuilder::compound` to represent ship's collider.
-    let scene = asset_server.load("models/spaceship_v1.glb#Scene0");
-    let ship_collider = AsyncSceneCollider {
-        handle: scene.clone(),
-        shape: Some(ComputedColliderShape::ConvexDecomposition(
-            VHACDParameters::default(),
-        )),
-        named_shapes: bevy::utils::HashMap::default(),
-    };
     commands
-        .spawn_bundle(SceneBundle { scene, ..default() })
-        .insert(ship_collider)
+        .spawn_bundle(SceneBundle {
+            scene: asset_server.load("models/spaceship_v1.glb#Scene0"),
+            ..default()
+        })
         .insert(Restitution::coefficient(1.0))
         .insert_bundle(TransformBundle::from(Transform::from_scale(
             2.0 * Vec3::ONE, // adjust model size for realizm
         )))
-        // todo: resolve how to add hitpoints to the collider entity
-        //.insert(projectile::HitPoints::new(1000))
-        .insert(Name::new("Spaceship"));
+        .insert(Name::new("Spaceship"))
+        .insert(scene_setup::SetupRequired::new(
+            move |commands, entities| {
+                for entity in entities {
+                    if let Some(mesh) = entity.get::<Handle<Mesh>>() {
+                        // TODO: Move collider and HitPoints to the root entity
+                        commands
+                            .entity(entity.id())
+                            .insert(AsyncCollider {
+                                handle: mesh.clone(),
+                                shape: ComputedColliderShape::ConvexDecomposition(
+                                    VHACDParameters::default(),
+                                ),
+                            })
+                            .insert(projectile::HitPoints::new(2000));
+                    }
+                }
+            },
+        ));
 
     let pos = 25.0;
     for (x, z, speed) in [
