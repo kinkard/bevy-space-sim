@@ -145,7 +145,7 @@ fn setup(
 
     // TODO: consider setting skybox as a child to the camera
     commands
-        .spawn_bundle(MaterialMeshBundle::<CubemapMaterial> {
+        .spawn(MaterialMeshBundle::<CubemapMaterial> {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 10000.0 })),
             material: cubemap_materials.add(CubemapMaterial {
                 texture: skybox_image.into(),

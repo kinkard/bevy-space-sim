@@ -141,7 +141,7 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
     color_gradient.add_key(1.0, Color::NONE.into());
 
     commands
-        .spawn_bundle(ParticleEffectBundle::new(
+        .spawn(ParticleEffectBundle::new(
             effects.add(
                 EffectAsset {
                     capacity: 1024,
@@ -181,7 +181,7 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
     size_gradient.add_key(1.0, Vec2::splat(0.2));
 
     commands
-        .spawn_bundle(ParticleEffectBundle::new(
+        .spawn(ParticleEffectBundle::new(
             effects.add(
                 EffectAsset {
                     capacity: 16384,
@@ -217,7 +217,7 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
     gradient.add_key(1.0, Color::NONE.into());
 
     commands
-        .spawn_bundle(ParticleEffectBundle::new(
+        .spawn(ParticleEffectBundle::new(
             effects.add(
                 EffectAsset {
                     capacity: 16384,

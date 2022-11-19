@@ -53,12 +53,12 @@ fn setup_env(
     asset_server: Res<AssetServer>,
 ) {
     commands
-        .spawn_bundle(SceneBundle {
+        .spawn(SceneBundle {
             scene: asset_server.load("models/spaceship_v1.glb#Scene0"),
             ..default()
         })
         .insert(Restitution::coefficient(1.0))
-        .insert_bundle(TransformBundle::from(Transform::from_scale(
+        .insert(TransformBundle::from(Transform::from_scale(
             2.0 * Vec3::ONE, // adjust model size for realizm
         )))
         .insert(scene_setup::SetupRequired::new(
@@ -102,7 +102,7 @@ fn setup_env(
     }
 
     // Create a light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 40000.0,
             range: 200.0,
@@ -137,7 +137,7 @@ fn spawn_baloon(
 
     let radius = 3.0;
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
                 radius,
                 sectors: 64,

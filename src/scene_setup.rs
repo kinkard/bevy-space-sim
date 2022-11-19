@@ -1,5 +1,5 @@
 /// Inspired by https://github.com/nicopap/bevy-scene-hook
-use bevy::{ecs::world::EntityRef, prelude::*, scene::SceneInstance};
+use bevy::{asset::LoadState, ecs::world::EntityRef, prelude::*, scene::SceneInstance};
 
 /// Component to attach setup function that will be invoked once scene is loaded.
 ///
@@ -7,7 +7,7 @@ use bevy::{ecs::world::EntityRef, prelude::*, scene::SceneInstance};
 ///
 /// ```
 /// commands
-///     .spawn_bundle(SceneBundle {
+///     .spawn(SceneBundle {
 ///         scene: asset_server.load("my_scene.glb#Scene0"),
 ///         ..default()
 ///     })
@@ -41,13 +41,15 @@ impl SetupRequired {
 }
 
 fn setup_scene(
-    scenes: Query<(Entity, &SceneInstance, &SetupRequired)>,
+    scenes: Query<(Entity, &Handle<Scene>, &SceneInstance, &SetupRequired)>,
+    server: Res<AssetServer>,
     scene_manager: Res<SceneSpawner>,
     world: &World,
     mut commands: Commands,
 ) {
-    for (entity, instance, setup) in scenes.iter() {
-        if let Some(entities) = scene_manager.iter_instance_entities(**instance) {
+    for (entity, handle, instance, setup) in scenes.iter() {
+        if server.get_load_state(handle.id()) == LoadState::Loaded {
+            let entities = scene_manager.iter_instance_entities(**instance);
             setup.0(
                 &mut commands,
                 [entity] // add the root entity to make possible to modify once scene is loaded

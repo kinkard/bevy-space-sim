@@ -10,8 +10,8 @@ edition = "2021"
 opt-level = 3
 
 [dependencies]
-bevy = { version = "0.8", features = ["dynamic", "ktx2", "zstd"] }
-bevy_rapier3d = { version = "0.16", features = [ "simd-stable", "debug-render" ] }
-bevy_hanabi = "0.4"
-bevy-inspector-egui = "0.13"
+bevy = { version = "0.9", features = ["dynamic", "ktx2", "zstd"] }
+bevy_rapier3d = { version = "0.19", features = [ "simd-stable", "debug-render" ] }
+bevy_hanabi = "0.5"
+bevy-inspector-egui = "0.14"
 rand = "0.8"

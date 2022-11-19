@@ -19,7 +19,7 @@ struct SecondaryWeapon;
 fn setup_player(mut commands: Commands) {
     // Create a player entity with a camera
     commands
-        .spawn_bundle(Camera3dBundle {
+        .spawn(Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 10.0),
             ..default()
         })
@@ -27,32 +27,26 @@ fn setup_player(mut commands: Commands) {
         .insert(Name::new("Player"))
         .with_children(|parent| {
             let rate_of_fire = 6.7;
-            parent
-                .spawn()
-                .insert(PrimaryWeapon)
-                .insert_bundle(weapon::MachineGun::new(rate_of_fire))
-                .insert_bundle(TransformBundle::from(Transform::from_translation(
-                    -Vec3::Z + 0.2 * Vec3::X,
-                )));
-            parent
-                .spawn()
-                .insert(PrimaryWeapon)
-                .insert_bundle(weapon::MachineGun::new(rate_of_fire))
-                .insert_bundle(TransformBundle::from(Transform::from_translation(
-                    -Vec3::Z - 0.2 * Vec3::X,
-                )));
-            parent
-                .spawn()
-                .insert(PrimaryWeapon)
-                .insert_bundle(weapon::MachineGun::new(rate_of_fire))
-                .insert_bundle(TransformBundle::from(Transform::from_translation(
-                    -Vec3::Z - 0.2 * Vec3::Y,
-                )));
+            parent.spawn((
+                PrimaryWeapon,
+                weapon::MachineGun::new(rate_of_fire),
+                TransformBundle::from(Transform::from_translation(-Vec3::Z + 0.2 * Vec3::X)),
+            ));
+            parent.spawn((
+                PrimaryWeapon,
+                weapon::MachineGun::new(rate_of_fire),
+                TransformBundle::from(Transform::from_translation(-Vec3::Z - 0.2 * Vec3::X)),
+            ));
+            parent.spawn((
+                PrimaryWeapon,
+                weapon::MachineGun::new(rate_of_fire),
+                TransformBundle::from(Transform::from_translation(-Vec3::Z - 0.2 * Vec3::Y)),
+            ));
 
-            parent
-                .spawn()
-                .insert(SecondaryWeapon)
-                .insert_bundle(TransformBundle::from(Transform::from_translation(-Vec3::Z)));
+            parent.spawn((
+                SecondaryWeapon,
+                TransformBundle::from(Transform::from_translation(-Vec3::Z)),
+            ));
         });
 }
 
@@ -62,19 +56,19 @@ struct ConsoleText;
 fn setup_hud(mut commands: Commands, assets: Res<AssetServer>) {
     // root UI node that covers all screen
     commands
-        .spawn_bundle(NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 align_items: AlignItems::Center, // vertical alignment
                 justify_content: JustifyContent::Center, // horizontal alignment
                 ..default()
             },
-            color: Color::NONE.into(),
+            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|parent| {
             // Aim in the middle of the screen
-            parent.spawn_bundle(ImageBundle {
+            parent.spawn(ImageBundle {
                 style: Style {
                     size: Size::new(Val::Px(40.0), Val::Px(40.0)),
                     ..default()
@@ -85,7 +79,7 @@ fn setup_hud(mut commands: Commands, assets: Res<AssetServer>) {
 
             // Semi-transparent section in the left bottom corner for in-game infromation
             parent
-                .spawn_bundle(NodeBundle {
+                .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Percent(25.0), Val::Percent(25.0)),
                         position_type: PositionType::Absolute,
@@ -94,18 +88,18 @@ fn setup_hud(mut commands: Commands, assets: Res<AssetServer>) {
                             bottom: Val::Px(10.0),
                             ..default()
                         },
-                        align_items: AlignItems::FlexEnd, // vertical alignment to top
-                        justify_content: JustifyContent::FlexStart, // horizontal alignment to left
+                        align_items: AlignItems::FlexStart, // vertical alignment to the top
+                        justify_content: JustifyContent::FlexStart, // horizontal alignment to the left
                         padding: UiRect::all(Val::Px(5.0)),
                         flex_wrap: FlexWrap::Wrap,
                         ..default()
                     },
-                    color: Color::rgba(0.7, 0.7, 0.7, 0.3).into(),
+                    background_color: Color::rgba(0.7, 0.7, 0.7, 0.3).into(),
                     ..default()
                 })
                 .with_children(|parent| {
                     parent
-                        .spawn_bundle(TextBundle::from_section(
+                        .spawn(TextBundle::from_section(
                             "",
                             TextStyle {
                                 font: assets.load("fonts/FiraMono-Medium.ttf"),
@@ -248,7 +242,7 @@ fn secondary_weapon_shoot(
         for transform in query.iter() {
             let radius = 0.2;
             commands
-                .spawn_bundle(projectile::ProjectileBundle {
+                .spawn(projectile::ProjectileBundle {
                     mesh_material: PbrBundle {
                         mesh: meshes.add(Mesh::from(shape::UVSphere {
                             radius,
@@ -274,7 +268,7 @@ fn secondary_weapon_shoot(
                     ..default()
                 })
                 .with_children(|children| {
-                    children.spawn_bundle(PointLightBundle {
+                    children.spawn(PointLightBundle {
                         point_light: PointLight {
                             intensity: 1500.0,
                             radius,

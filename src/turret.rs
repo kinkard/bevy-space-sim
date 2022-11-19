@@ -61,6 +61,7 @@ impl TurretBundle {
     }
 }
 
+#[derive(Resource)]
 struct TurretScene(Handle<Scene>);
 
 fn load_turret_scene(mut commands: Commands, assets: Res<AssetServer>) {
@@ -75,7 +76,7 @@ fn create_turret(
     for ev in ev_create_turret.iter() {
         let rotation_speed = ev.rotation_speed;
         commands
-            .spawn_bundle(SceneBundle {
+            .spawn(SceneBundle {
                 scene: turret_scene.0.clone(),
                 transform: ev.transform,
                 ..default()
@@ -112,8 +113,8 @@ fn create_turret(
                 head.map(|head| {
                     commands
                         .entity(head)
-                        .insert_bundle(TurretBundle::new(joints))
-                        .insert_bundle(weapon::FlakCannon::new(barrels, 5.0));
+                        .insert(TurretBundle::new(joints))
+                        .insert(weapon::FlakCannon::new(barrels, 5.0));
 
                     body.map(|body| {
                         commands.entity(head).insert(IgnoreTargets(vec![body]));

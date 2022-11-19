@@ -22,7 +22,7 @@ pub struct Gun {
 impl Gun {
     pub fn new(rate_of_fire: f32) -> Self {
         Self {
-            rate_of_fire_timer: Timer::from_seconds(1.0 / rate_of_fire, true),
+            rate_of_fire_timer: Timer::from_seconds(1.0 / rate_of_fire, TimerMode::Repeating),
         }
     }
 }
@@ -62,6 +62,7 @@ impl MultiBarrel {
     }
 }
 
+#[derive(Resource)]
 struct GunProjectile {
     collider: Collider,
     mesh: Handle<Mesh>,
@@ -153,7 +154,7 @@ fn single_barrel(
 ) {
     for (barrel, gun) in guns.iter() {
         if gun.rate_of_fire_timer.just_finished() {
-            commands.spawn_bundle(projectile.spawn(barrel.translation(), barrel.forward()));
+            commands.spawn(projectile.spawn(barrel.translation(), barrel.forward()));
         }
     }
 }
@@ -168,7 +169,7 @@ fn multi_barrel(
         if gun.rate_of_fire_timer.just_finished() {
             for barrel in barrels.0.iter() {
                 let barrel = barrel_transforms.get(*barrel).unwrap();
-                commands.spawn_bundle(projectile.spawn(barrel.translation(), barrel.forward()));
+                commands.spawn(projectile.spawn(barrel.translation(), barrel.forward()));
             }
         }
     }
