@@ -91,7 +91,7 @@ fn create_turret(
 
                 entities
                     // Skip entities with `Handle<Mesh>` as we should operate only with GLTF's Nodes
-                    .filter(|e| e.get::<Handle<Mesh>>().is_none())
+                    .filter(|e| !e.contains::<Handle<Mesh>>())
                     .filter_map(|e| e.get::<Name>().map(|name| (e.id(), name)))
                     .for_each(|(entity, name)| {
                         if name.starts_with("Muzzle") {

@@ -13,7 +13,7 @@ use bevy::{asset::LoadState, ecs::world::EntityRef, prelude::*, scene::SceneInst
 ///     })
 ///     .insert(SetupRequired::new(|commands, entities| {
 ///         entities
-///             .filter(|e| e.get::<Handle<Mesh>>().is_none()) // Skip GLTF Mesh entities
+///             .filter(|e| !e.contains::<Handle<Mesh>>()) // Skip GLTF Mesh entities
 ///             .filter_map(|e| e.get::<Name>().map(|name| (e.id(), name)))
 ///             .for_each(|(entity, name)| {
 ///                 if name.starts_with("Muzzle") {

@@ -66,10 +66,10 @@ fn setup_env(
                 let mut root: Option<Entity> = None;
                 let mut mesh_source: Option<Entity> = None;
                 for entity in entities {
-                    if entity.get::<SceneInstance>().is_some() {
+                    if entity.contains::<SceneInstance>() {
                         root = Some(entity.id());
                     }
-                    if entity.get::<Handle<Mesh>>().is_some() {
+                    if entity.contains::<Handle<Mesh>>() {
                         mesh_source = Some(entity.id());
                     }
                 }
