@@ -60,7 +60,6 @@ fn convex_hull(
     to_setup: Query<(Entity, &ConvexHull, &GlobalTransform)>,
     with_children: Query<&Children>,
     with_meshes: Query<(&Handle<Mesh>, &GlobalTransform)>,
-    mut with_transform: Query<&mut Transform, With<ConvexHull>>,
 ) {
     let extract_vertices = |mesh, affine: Affine3A| {
         // todo: consider Vec3 -> Vec3A and sort() + dedup() to speed up verices processing
@@ -97,15 +96,12 @@ fn convex_hull(
                 .for_each(|v| *v = affine.transform_point3(*v));
 
             if let Some(collider) = Collider::convex_hull(&vertices) {
-                commands.entity(entity).insert(collider);
-
-                // Manual set `Changed` to the entity transform to trigger added collider position recalculation
-                if let Ok(mut transform) = with_transform.get_mut(entity) {
-                    transform.set_changed();
-                }
+                commands
+                    .entity(entity)
+                    .insert(collider)
+                    .insert(RecalculateTransform);
             }
         }
-
         commands.entity(entity).remove::<ConvexHull>();
     }
 }
@@ -115,7 +111,6 @@ fn convex_decomposition(
     meshes: ResMut<Assets<Mesh>>,
     to_setup: Query<(Entity, &ConvexDecomposition, &GlobalTransform)>,
     with_meshes: Query<(&Handle<Mesh>, &GlobalTransform)>,
-    mut with_transform: Query<&mut Transform, With<ConvexDecomposition>>,
 ) {
     for (entity, decomposition, transform) in to_setup.iter() {
         let (mesh, source_transform) = with_meshes.get(decomposition.mesh_source).unwrap();
@@ -135,20 +130,34 @@ fn convex_decomposition(
                 &vertices,
                 &indices,
                 &decomposition.parameters,
-            ));
-
-        // Manual set `Changed` to the entity transform to trigger added collider position recalculation
-        if let Ok(mut transform) = with_transform.get_mut(entity) {
-            transform.set_changed();
-        }
-
+            ))
+            .insert(RecalculateTransform);
         commands.entity(entity).remove::<ConvexDecomposition>();
+    }
+}
+
+/// Add this component if manual transform recalculation triggering is required.
+/// A common case for this is adding collider to the stationary entity, as collider will be spawned at [0.0, 0.0, 0.0],
+/// and will be moved to the correct possition only once GlobalTransform is recalculated .
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+struct RecalculateTransform;
+
+fn recalculate_transform(
+    mut commands: Commands,
+    mut transforms: Query<(Entity, &mut Transform), With<RecalculateTransform>>,
+) {
+    for (entity, mut transform) in transforms.iter_mut() {
+        transform.set_changed();
+        commands.entity(entity).remove::<RecalculateTransform>();
     }
 }
 
 pub struct ColliderSetupPlugin;
 impl Plugin for ColliderSetupPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(convex_hull).add_system(convex_decomposition);
+        app.add_system(convex_hull)
+            .add_system(convex_decomposition)
+            .add_system(recalculate_transform);
     }
 }
