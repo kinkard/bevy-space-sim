@@ -11,7 +11,6 @@ use bevy_rapier3d::prelude::{Collider, VHACDParameters};
 /// direct children (no recursive traversal).
 /// Children are traversed only if entity has no attached meshes, like GLTF Node.
 #[derive(Component)]
-#[component(storage = "SparseSet")]
 pub struct ConvexHull(Vec<Entity>);
 
 impl ConvexHull {
@@ -24,7 +23,6 @@ impl ConvexHull {
 /// A new collider is computed as a convex decomposition from mesh, taken from referenced entity.
 /// This component use entity instead of Handle<Mesh> to resolve transform, applied to the mesh.
 #[derive(Component)]
-#[component(storage = "SparseSet")]
 pub struct ConvexDecomposition {
     pub mesh_source: Entity,
     pub parameters: VHACDParameters,
@@ -140,7 +138,6 @@ fn convex_decomposition(
 /// A common case for this is adding collider to the stationary entity, as collider will be spawned at [0.0, 0.0, 0.0],
 /// and will be moved to the correct possition only once GlobalTransform is recalculated .
 #[derive(Component)]
-#[component(storage = "SparseSet")]
 struct RecalculateTransform;
 
 fn recalculate_transform(

@@ -27,7 +27,6 @@ use bevy::{asset::LoadState, ecs::world::EntityRef, prelude::*, scene::SceneInst
 ///     }));
 /// ```
 #[derive(Component)]
-#[component(storage = "SparseSet")]
 pub struct SetupRequired(
     Box<dyn Fn(&mut Commands, std::slice::Iter<EntityRef>) + Send + Sync + 'static>,
 );

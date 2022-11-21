@@ -283,16 +283,14 @@ fn secondary_weapon_shoot(
 }
 
 /// Annotates current locked target.
-/// For more details about "SparseSet" see https://bevy-cheatbook.github.io/patterns/component-storage.html
 #[derive(Component)]
-#[component(storage = "SparseSet")]
 pub struct LockedTarget;
 
 fn select_target(
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
     camera: Query<&Transform, With<Camera>>,
-    target: Query<Entity, With<LockedTarget>>,
+    targets: Query<Entity, With<LockedTarget>>,
     children: Query<&Children>,
     with_mesh: Query<&Handle<Mesh>>,
     keys: Res<Input<KeyCode>>,
@@ -320,16 +318,18 @@ fn select_target(
             }
 
             // Select a new target and highlight it via Wireframe
-            commands.entity(entity).insert(LockedTarget);
-            iter_hierarchy(entity, &children, &mut |entity| {
-                if with_mesh.get(entity).is_ok() {
-                    commands.entity(entity).insert(wireframe::Wireframe);
-                }
-            });
+            if !targets.contains(entity) {
+                commands.entity(entity).insert(LockedTarget);
+                iter_hierarchy(entity, &children, &mut |entity| {
+                    if with_mesh.contains(entity) {
+                        commands.entity(entity).insert(wireframe::Wireframe);
+                    }
+                });
+            }
 
             // Remove previous target selection if any.
             // This order also unselects previous target on a repeated select.
-            for prev_target in target.iter() {
+            for prev_target in targets.iter() {
                 commands.entity(prev_target).remove::<LockedTarget>();
                 iter_hierarchy(prev_target, &children, &mut |entity| {
                     commands.entity(entity).remove::<wireframe::Wireframe>();
