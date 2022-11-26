@@ -154,7 +154,6 @@ fn spawn_baloon(
         .insert(Velocity {
             linvel: Vec3::Y * rng.gen_range(1.0..5.0),
             angvel: Vec3::Y * rng.gen_range(-2.0..2.0),
-            ..default()
         })
         .insert(Collider::ball(radius))
         .insert(RigidBody::Dynamic)

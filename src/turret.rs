@@ -110,22 +110,25 @@ fn create_turret(
                         }
                     });
 
-                head.map(|head| {
+                let mut ignore_targets = vec![];
+                if let Some(body) = body {
+                    commands
+                        .entity(body)
+                        .insert(HitPoints::new(200))
+                        .insert(collider_setup::ConvexHull::new(collider_parts));
+                    ignore_targets.push(body);
+                };
+
+                if let Some(head) = head {
                     commands
                         .entity(head)
                         .insert(TurretBundle::new(joints))
                         .insert(weapon::FlakCannon::new(barrels, 5.0));
 
-                    body.map(|body| {
-                        commands.entity(head).insert(IgnoreTargets(vec![body]));
-                    });
-                });
-                body.map(|body| {
-                    commands
-                        .entity(body)
-                        .insert(HitPoints::new(200))
-                        .insert(collider_setup::ConvexHull::new(collider_parts));
-                });
+                    if !ignore_targets.is_empty() {
+                        commands.entity(head).insert(IgnoreTargets(ignore_targets));
+                    }
+                }
             }))
             .insert(Name::new("Turret"));
     }

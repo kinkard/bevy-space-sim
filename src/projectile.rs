@@ -83,7 +83,7 @@ mod tests {
 
 /// Entity explosion effect. If set - entity will be destroyed on collision
 /// with spawning a corresponding effect.
-#[derive(Component, Copy, Clone, PartialEq)]
+#[derive(Component, Copy, Clone, PartialEq, Eq)]
 pub enum ExplosionEffect {
     Debug,
     Small,

@@ -39,11 +39,9 @@ fn check_trigger(mut guns: Query<(&mut Trigger, &mut Gun)>, time: Res<Time>) {
                 let duration = gun.rate_of_fire_timer.duration();
                 gun.rate_of_fire_timer.tick(duration);
             }
-        } else {
-            if gun.rate_of_fire_timer.just_finished() {
-                gun.rate_of_fire_timer.reset();
-                gun.rate_of_fire_timer.pause();
-            }
+        } else if gun.rate_of_fire_timer.just_finished() {
+            gun.rate_of_fire_timer.reset();
+            gun.rate_of_fire_timer.pause();
         }
     }
 }
@@ -99,14 +97,14 @@ impl GunProjectile {
                 ..default()
             }),
             speed,
-            damage: damage,
-            lifetime: lifetime,
-            explosion: explosion,
+            damage,
+            lifetime,
+            explosion,
         }
     }
 
-    fn spawn(&self, position: Vec3, direction: Vec3) -> projectile::ProjectileBundle {
-        projectile::ProjectileBundle {
+    fn spawn(&self, commands: &mut Commands, position: Vec3, direction: Vec3) {
+        commands.spawn(projectile::ProjectileBundle {
             mesh_material: PbrBundle {
                 mesh: self.mesh.clone(),
                 material: self.material.clone(),
@@ -124,10 +122,10 @@ impl GunProjectile {
                 ..default()
             },
             lifetime: self.lifetime.clone(),
-            explosion: self.explosion.clone(),
+            explosion: self.explosion,
             damage: self.damage.clone(),
             ..default()
-        }
+        });
     }
 }
 
@@ -154,7 +152,7 @@ fn single_barrel(
 ) {
     for (barrel, gun) in guns.iter() {
         if gun.rate_of_fire_timer.just_finished() {
-            commands.spawn(projectile.spawn(barrel.translation(), barrel.forward()));
+            projectile.spawn(&mut commands, barrel.translation(), barrel.forward());
         }
     }
 }
@@ -169,7 +167,7 @@ fn multi_barrel(
         if gun.rate_of_fire_timer.just_finished() {
             for barrel in barrels.0.iter() {
                 let barrel = barrel_transforms.get(*barrel).unwrap();
-                commands.spawn(projectile.spawn(barrel.translation(), barrel.forward()));
+                projectile.spawn(&mut commands, barrel.translation(), barrel.forward());
             }
         }
     }

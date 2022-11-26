@@ -62,7 +62,7 @@ fn convex_hull(
     let extract_vertices = |mesh, affine: Affine3A| {
         // todo: consider Vec3 -> Vec3A and sort() + dedup() to speed up verices processing
         extract_mesh_vertices(meshes.get(mesh).unwrap())
-            .unwrap_or(vec![])
+            .unwrap_or_default()
             .into_iter()
             .map(move |v| affine.transform_point3(v))
     };
