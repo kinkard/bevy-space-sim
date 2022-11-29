@@ -14,15 +14,24 @@ impl Trigger {
     }
 }
 
+pub enum Projectile {
+    Bullet,
+    Rocket,
+}
+
 #[derive(Component)]
 pub struct Gun {
     rate_of_fire_timer: Timer,
+    projectile: Projectile,
+    speed: f32,
 }
 
 impl Gun {
-    pub fn new(rate_of_fire: f32) -> Self {
+    pub fn new(rate_of_fire: f32, projectile: Projectile, speed: f32) -> Self {
         Self {
             rate_of_fire_timer: Timer::from_seconds(1.0 / rate_of_fire, TimerMode::Repeating),
+            projectile,
+            speed,
         }
     }
 }
@@ -61,28 +70,23 @@ impl MultiBarrel {
 }
 
 #[derive(Resource)]
-struct GunProjectile {
+struct Bullet {
     collider: Collider,
     mesh: Handle<Mesh>,
     material: Handle<StandardMaterial>,
 
-    speed: f32,
     lifetime: projectile::Lifetime,
 
     explosion: projectile::ExplosionEffect,
     damage: projectile::Damage,
 }
 
-impl GunProjectile {
+impl Bullet {
     fn new(
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
-        radius: f32,
-        speed: f32,
-        lifetime: projectile::Lifetime,
-        explosion: projectile::ExplosionEffect,
-        damage: projectile::Damage,
+        meshes: &mut ResMut<Assets<Mesh>>,
+        materials: &mut ResMut<Assets<StandardMaterial>>,
     ) -> Self {
+        let radius = 0.02;
         Self {
             collider: Collider::capsule_y(8.0 * radius, radius),
             mesh: meshes.add(Mesh::from(shape::Capsule {
@@ -96,14 +100,13 @@ impl GunProjectile {
                 // exclude this material from shadows calculations
                 ..default()
             }),
-            speed,
-            damage,
-            lifetime,
-            explosion,
+            lifetime: projectile::Lifetime(10.0),
+            explosion: projectile::ExplosionEffect::Small,
+            damage: projectile::Damage(1),
         }
     }
 
-    fn spawn(&self, commands: &mut Commands, position: Vec3, direction: Vec3) {
+    fn spawn(&self, commands: &mut Commands, position: Vec3, direction: Vec3, speed: f32) {
         commands.spawn(projectile::ProjectileBundle {
             mesh_material: PbrBundle {
                 mesh: self.mesh.clone(),
@@ -118,7 +121,7 @@ impl GunProjectile {
             },
             collider: self.collider.clone(),
             velocity: Velocity {
-                linvel: direction * self.speed,
+                linvel: direction * speed,
                 ..default()
             },
             lifetime: self.lifetime.clone(),
@@ -129,30 +132,115 @@ impl GunProjectile {
     }
 }
 
+#[derive(Resource)]
+struct Rocket {
+    collider: Collider,
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+
+    lifetime: projectile::Lifetime,
+
+    explosion: projectile::ExplosionEffect,
+    damage: projectile::Damage,
+
+    light: PointLight,
+}
+
+impl Rocket {
+    fn new(
+        meshes: &mut ResMut<Assets<Mesh>>,
+        materials: &mut ResMut<Assets<StandardMaterial>>,
+    ) -> Self {
+        let radius = 0.2;
+        Self {
+            collider: Collider::ball(radius),
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius,
+                sectors: 64,
+                stacks: 32,
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgb(1.0, 0.5, 0.5),
+                unlit: true,
+                ..default()
+            }),
+            lifetime: projectile::Lifetime(30.0),
+            explosion: projectile::ExplosionEffect::Big,
+            damage: projectile::Damage(19),
+            light: PointLight {
+                intensity: 1500.0,
+                radius,
+                color: Color::rgb(1.0, 0.2, 0.2),
+                ..default()
+            },
+        }
+    }
+
+    fn spawn(&self, commands: &mut Commands, position: Vec3, direction: Vec3, speed: f32) {
+        commands
+            .spawn(projectile::ProjectileBundle {
+                mesh_material: PbrBundle {
+                    mesh: self.mesh.clone(),
+                    material: self.material.clone(),
+                    transform: Transform {
+                        translation: position,
+                        // `Collider::capsule_y` and `shape::Capsule` are both aligned with Vec3::Y axis
+                        rotation: Quat::from_rotation_arc(Vec3::Y, direction),
+                        scale: Vec3::ONE,
+                    },
+                    ..default()
+                },
+                collider: self.collider.clone(),
+                velocity: Velocity {
+                    linvel: direction * speed,
+                    ..default()
+                },
+                lifetime: self.lifetime.clone(),
+                explosion: self.explosion,
+                damage: self.damage.clone(),
+                ..default()
+            })
+            .with_children(|children| {
+                children.spawn(PointLightBundle {
+                    point_light: self.light.clone(),
+                    ..default()
+                });
+            });
+    }
+}
+
 fn setup_projectile(
     mut commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.insert_resource(GunProjectile::new(
-        meshes,
-        materials,
-        0.02,
-        100.0,
-        projectile::Lifetime(10.0),
-        projectile::ExplosionEffect::Small,
-        projectile::Damage(1),
-    ));
+    commands.insert_resource(Bullet::new(&mut meshes, &mut materials));
+    commands.insert_resource(Rocket::new(&mut meshes, &mut materials));
 }
 
 fn single_barrel(
     mut commands: Commands,
     guns: Query<(&GlobalTransform, &Gun), Without<MultiBarrel>>,
-    projectile: Res<GunProjectile>,
+    bullet: Res<Bullet>,
+    rocket: Res<Rocket>,
 ) {
     for (barrel, gun) in guns.iter() {
         if gun.rate_of_fire_timer.just_finished() {
-            projectile.spawn(&mut commands, barrel.translation(), barrel.forward());
+            // todo: move this code somewhere and make it possible to add more different projectiles
+            match gun.projectile {
+                Projectile::Bullet => bullet.spawn(
+                    &mut commands,
+                    barrel.translation(),
+                    barrel.forward(),
+                    gun.speed,
+                ),
+                Projectile::Rocket => rocket.spawn(
+                    &mut commands,
+                    barrel.translation(),
+                    barrel.forward(),
+                    gun.speed,
+                ),
+            };
         }
     }
 }
@@ -161,13 +249,18 @@ fn multi_barrel(
     mut commands: Commands,
     guns: Query<(&Gun, &MultiBarrel)>,
     barrel_transforms: Query<&GlobalTransform, With<Barrel>>,
-    projectile: Res<GunProjectile>,
+    projectile: Res<Bullet>,
 ) {
     for (gun, barrels) in guns.iter() {
         if gun.rate_of_fire_timer.just_finished() {
             for barrel in barrels.0.iter() {
                 let barrel = barrel_transforms.get(*barrel).unwrap();
-                projectile.spawn(&mut commands, barrel.translation(), barrel.forward());
+                projectile.spawn(
+                    &mut commands,
+                    barrel.translation(),
+                    barrel.forward(),
+                    gun.speed,
+                );
             }
         }
     }

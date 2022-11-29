@@ -1,11 +1,7 @@
 use bevy::{input::mouse::MouseWheel, pbr::wireframe, prelude::*, render::camera};
 use bevy_rapier3d::prelude::*;
 
-use crate::{
-    gun,
-    projectile::{self, Damage, HitPoints},
-    weapon,
-};
+use crate::{gun, projectile::HitPoints, weapon};
 
 #[derive(Component)]
 struct Player;
@@ -45,6 +41,7 @@ fn setup_player(mut commands: Commands) {
 
             parent.spawn((
                 SecondaryWeapon,
+                weapon::RocketLauncher::new(rate_of_fire),
                 TransformBundle::from(Transform::from_translation(-Vec3::Z)),
             ));
         });
@@ -231,53 +228,12 @@ fn primary_weapon_shoot(
 }
 
 fn secondary_weapon_shoot(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     keys: Res<Input<KeyCode>>,
-    query: Query<&GlobalTransform, With<SecondaryWeapon>>,
+    mut triggers: Query<&mut gun::Trigger, With<SecondaryWeapon>>,
 ) {
-    // big and slow projectile, prototype for rocket
-    if keys.just_pressed(KeyCode::LControl) {
-        for transform in query.iter() {
-            let radius = 0.2;
-            commands
-                .spawn(projectile::ProjectileBundle {
-                    mesh_material: PbrBundle {
-                        mesh: meshes.add(Mesh::from(shape::UVSphere {
-                            radius,
-                            sectors: 64,
-                            stacks: 32,
-                        })),
-                        material: materials.add(StandardMaterial {
-                            base_color: Color::rgb(1.0, 0.5, 0.5),
-                            unlit: true,
-                            ..default()
-                        }),
-                        transform: Transform::from_translation(transform.translation()),
-                        ..default()
-                    },
-                    velocity: Velocity {
-                        linvel: transform.forward() * 20.0,
-                        ..default()
-                    },
-                    collider: Collider::ball(radius),
-                    lifetime: projectile::Lifetime(30.0),
-                    explosion: projectile::ExplosionEffect::Big,
-                    damage: Damage(19),
-                    ..default()
-                })
-                .with_children(|children| {
-                    children.spawn(PointLightBundle {
-                        point_light: PointLight {
-                            intensity: 1500.0,
-                            radius,
-                            color: Color::rgb(1.0, 0.2, 0.2),
-                            ..default()
-                        },
-                        ..default()
-                    });
-                });
+    if keys.pressed(KeyCode::LControl) {
+        for mut trigger in triggers.iter_mut() {
+            trigger.pull();
         }
     }
 }
