@@ -231,7 +231,7 @@ fn secondary_weapon_shoot(
     keys: Res<Input<KeyCode>>,
     mut triggers: Query<&mut gun::Trigger, With<SecondaryWeapon>>,
 ) {
-    if keys.pressed(KeyCode::LControl) {
+    if keys.just_pressed(KeyCode::LControl) {
         for mut trigger in triggers.iter_mut() {
             trigger.pull();
         }
