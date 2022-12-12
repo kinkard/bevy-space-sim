@@ -88,6 +88,56 @@ fn setup_env(
         .insert(projectile::HitPoints::new(2000))
         .insert(Name::new("Spaceship"));
 
+    commands
+        .spawn(SceneBundle {
+            scene: asset_server.load("models/artillery_platform.glb#Scene0"),
+            ..default()
+        })
+        .insert(Restitution::coefficient(1.0))
+        .insert(TransformBundle::from(Transform {
+            translation: Vec3::new(0.0, 100.0, -300.0),
+            rotation: Quat::from_rotation_y(std::f32::consts::PI),
+            ..default()
+        }))
+        .insert(scene_setup::SetupRequired::new(
+            move |commands, entities| {
+                let collider_parts: Vec<_> = entities
+                    .clone()
+                    .filter(|entity| entity.contains::<Handle<Mesh>>())
+                    .map(|entity| entity.id())
+                    .collect();
+
+                let mut root_entity = None;
+                let mut sphere = None;
+                for entity in entities {
+                    if entity.contains::<SceneInstance>() {
+                        root_entity = Some(entity.id());
+                    }
+                    if matches!(entity.get::<Name>(), Some(name) if name.starts_with("Sphere")) {
+                        sphere = Some(entity.id());
+                    }
+                }
+
+                commands
+                    .entity(root_entity.unwrap())
+                    .insert(collider_setup::ConvexHull::new(collider_parts));
+                commands.entity(sphere.unwrap()).add_children(|children| {
+                    children.spawn(PointLightBundle {
+                        point_light: PointLight {
+                            intensity: 30000.0,
+                            radius: 0.1,
+                            color: Color::rgb(0.2, 0.2, 1.0),
+                            shadows_enabled: true,
+                            ..default()
+                        },
+                        ..default()
+                    });
+                });
+            },
+        ))
+        .insert(projectile::HitPoints::new(2000))
+        .insert(Name::new("Artillery Platform"));
+
     let pos = 25.0;
     for (x, z, speed) in [
         (-pos, -pos, 30.0_f32),
