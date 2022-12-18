@@ -121,7 +121,7 @@ fn move_player(
 ) {
     let mut camera_speed = 10.0;
     if keys.pressed(KeyCode::LShift) {
-        camera_speed *= 3.0;
+        camera_speed *= 10.0;
     }
     let camepa_step = camera_speed * time.delta_seconds();
 
