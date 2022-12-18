@@ -20,7 +20,7 @@ fn lifetime(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &
 #[derive(Component, Clone)]
 pub struct Damage(pub u32);
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Clone, Default, Reflect)]
 #[reflect(Component)]
 pub struct HitPoints {
     maximum: u32,

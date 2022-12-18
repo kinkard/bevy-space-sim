@@ -5,8 +5,8 @@ use crate::{
     collider_setup, gun, player, projectile::HitPoints, scene_setup::SetupRequired, weapon,
 };
 
-/// Emit this event to create a turret with specified parameters
-pub struct CreateTurretEvent {
+/// Emit this event to spawn a turret with specified parameters
+pub struct SpawnTurretEvent {
     pub transform: Transform,
     /// Rotation speed in rad/s
     pub rotation_speed: f32,
@@ -64,16 +64,16 @@ impl TurretBundle {
 #[derive(Resource)]
 struct TurretScene(Handle<Scene>);
 
-fn load_turret_scene(mut commands: Commands, assets: Res<AssetServer>) {
+fn load_turret_resources(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(TurretScene(assets.load("models/turret.glb#Scene0")));
 }
 
-fn create_turret(
+fn spawn_turret(
     mut commands: Commands,
     turret_scene: Res<TurretScene>,
-    mut ev_create_turret: EventReader<CreateTurretEvent>,
+    mut ev_spawn_turret: EventReader<SpawnTurretEvent>,
 ) {
-    for ev in ev_create_turret.iter() {
+    for ev in ev_spawn_turret.iter() {
         let rotation_speed = ev.rotation_speed;
         commands
             .spawn(SceneBundle {
@@ -107,7 +107,6 @@ fn create_turret(
                         } else if name.starts_with("Head") {
                             commands.entity(entity).insert(Joint { rotation_speed });
                             joints.push(entity);
-                            collider_parts.push(entity);
                             head = Some(entity);
                         }
                     });
@@ -224,9 +223,9 @@ fn orientation(
 pub struct TurretPlugin;
 impl Plugin for TurretPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(load_turret_scene)
-            .add_event::<CreateTurretEvent>()
-            .add_system(create_turret)
+        app.add_startup_system(load_turret_resources)
+            .add_event::<SpawnTurretEvent>()
+            .add_system(spawn_turret)
             .add_system(select_target)
             .add_system(gun_layer)
             .add_system(orientation.after(gun_layer));

@@ -6,6 +6,7 @@ use bevy_rapier3d::prelude::*;
 use rand::Rng;
 
 pub mod collider_setup;
+pub mod drone;
 pub mod gun;
 pub mod player;
 pub mod projectile;
@@ -31,6 +32,7 @@ fn main() {
         .add_plugin(gun::GunPlugin)
         .add_plugin(player::PlayerPlugin)
         .add_plugin(turret::TurretPlugin)
+        .add_plugin(drone::DronePlugin)
         .add_startup_system(setup_env)
         .add_system_set(
             SystemSet::new()
@@ -49,7 +51,8 @@ fn main() {
 
 fn setup_env(
     mut commands: Commands,
-    mut ev_create_turret: EventWriter<turret::CreateTurretEvent>,
+    mut ev_spawn_turret: EventWriter<turret::SpawnTurretEvent>,
+    mut ev_spawn_drone: EventWriter<drone::SpawnDroneEvent>,
     asset_server: Res<AssetServer>,
 ) {
     commands
@@ -138,6 +141,24 @@ fn setup_env(
         .insert(projectile::HitPoints::new(2000))
         .insert(Name::new("Artillery Platform"));
 
+    ev_spawn_drone.send(drone::SpawnDroneEvent {
+        drone: drone::Drone::Infiltrator,
+        transform: Transform {
+            translation: Vec3::new(-10.0, 10.0, 0.0),
+            rotation: Quat::from_rotation_y(std::f32::consts::PI),
+            ..default()
+        },
+    });
+
+    ev_spawn_drone.send(drone::SpawnDroneEvent {
+        drone: drone::Drone::Praetor,
+        transform: Transform {
+            translation: Vec3::new(10.0, 10.0, 0.0),
+            rotation: Quat::from_rotation_y(std::f32::consts::PI),
+            ..default()
+        },
+    });
+
     let pos = 25.0;
     for (x, z, speed) in [
         (-pos, -pos, 30.0_f32),
@@ -145,7 +166,7 @@ fn setup_env(
         (-pos, pos, 180.0_f32),
         (pos, pos, 240.0_f32),
     ] {
-        ev_create_turret.send(turret::CreateTurretEvent {
+        ev_spawn_turret.send(turret::SpawnTurretEvent {
             transform: Transform::from_translation(Vec3::new(x, -3.0, z)),
             rotation_speed: speed.to_radians(),
         });

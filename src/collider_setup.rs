@@ -7,7 +7,7 @@ use bevy::{
 use bevy_rapier3d::prelude::{Collider, VHACDParameters};
 
 /// Annotates an entity where a new collider should be added.
-/// A new collider is computed as a convex hull that covers all meshes of `collider_parts` or theirs
+/// A new collider is computed as a compound of convex hulls that covers each mesh in `collider_parts` or it's
 /// direct children (no recursive traversal).
 /// Children are traversed only if entity has no attached meshes, like GLTF Node.
 #[derive(Component)]
@@ -69,37 +69,43 @@ fn convex_hull(
 
     for (entity, collider_parts, transform) in to_setup.iter() {
         // Collect all vertices in the world's transform
-        let mut vertices = vec![];
+        let mut parts = vec![];
         for part in collider_parts.0.iter() {
             // Try to get mesh from `part` entity
             if let Ok((mesh, transform)) = with_meshes.get(*part) {
-                vertices.extend(extract_vertices(mesh, transform.affine()));
+                let part_vertices: Vec<_> = extract_vertices(mesh, transform.affine()).collect();
+                parts.push(part_vertices);
             } else {
-                // Traverse `part` children and get meshes if any
+                // Traverse `part` children and get meshes if any to combine them into a single part
                 if let Ok(children) = with_children.get(*part) {
+                    let mut part_vertices = vec![];
                     for child in children.iter() {
                         if let Ok((mesh, transform)) = with_meshes.get(*child) {
-                            vertices.extend(extract_vertices(mesh, transform.affine()));
+                            part_vertices.extend(extract_vertices(mesh, transform.affine()));
                         }
                     }
+                    parts.push(part_vertices);
                 }
             }
         }
 
-        if !vertices.is_empty() {
-            // With inverse transform, collider will match to the entity's shape
-            let affine = transform.affine().inverse();
-            vertices
-                .iter_mut()
-                .for_each(|v| *v = affine.transform_point3(*v));
-
-            if let Some(collider) = Collider::convex_hull(&vertices) {
-                commands
-                    .entity(entity)
-                    .insert(collider)
-                    .insert(RecalculateTransform);
-            }
-        }
+        // With inverse transform, collider will match to the entity's shape
+        let affine = transform.affine().inverse();
+        let colliders: Vec<_> = parts
+            .into_iter()
+            .filter_map(|mut vertices| {
+                vertices
+                    .iter_mut()
+                    .for_each(|v| *v = affine.transform_point3(*v));
+                Collider::convex_hull(&vertices)
+            })
+            .map(|collider| (Vec3::ZERO, Quat::IDENTITY, collider))
+            .collect();
+        let collider = Collider::compound(colliders);
+        commands
+            .entity(entity)
+            .insert(collider)
+            .insert(RecalculateTransform);
         commands.entity(entity).remove::<ConvexHull>();
     }
 }
