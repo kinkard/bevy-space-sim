@@ -13,6 +13,7 @@ use bevy::{asset::LoadState, ecs::world::EntityRef, prelude::*, scene::SceneInst
 ///     })
 ///     .insert(SetupRequired::new(|commands, entities| {
 ///         entities
+///             .iter()
 ///             .filter(|e| !e.contains::<Handle<Mesh>>()) // Skip GLTF Mesh entities
 ///             .filter_map(|e| e.get::<Name>().map(|name| (e.id(), name)))
 ///             .for_each(|(entity, name)| {
@@ -27,14 +28,10 @@ use bevy::{asset::LoadState, ecs::world::EntityRef, prelude::*, scene::SceneInst
 ///     }));
 /// ```
 #[derive(Component)]
-pub struct SetupRequired(
-    Box<dyn Fn(&mut Commands, std::slice::Iter<EntityRef>) + Send + Sync + 'static>,
-);
+pub struct SetupRequired(Box<dyn Fn(&mut Commands, &[EntityRef]) + Send + Sync + 'static>);
 
 impl SetupRequired {
-    pub fn new<F: Fn(&mut Commands, std::slice::Iter<EntityRef>) + Send + Sync + 'static>(
-        setup_fn: F,
-    ) -> Self {
+    pub fn new<F: Fn(&mut Commands, &[EntityRef]) + Send + Sync + 'static>(setup_fn: F) -> Self {
         Self(Box::new(setup_fn))
     }
 }
@@ -48,18 +45,14 @@ fn setup_scene(
 ) {
     for (entity, handle, instance, setup) in scenes.iter() {
         if server.get_load_state(handle.id()) == LoadState::Loaded {
-            let entities = scene_manager.iter_instance_entities(**instance);
-            setup.0(
-                &mut commands,
-                [entity] // add the root entity to make possible to modify once scene is loaded
-                    .into_iter()
-                    .chain(entities)
-                    .filter_map(|e| world.get_entity(e))
-                    // collect() + iter() allows to handle lifetime problems and
-                    // workarounds `Box<dyn Iterator<Item = EntityRef>>` in function type declaration
-                    .collect::<Vec<_>>()
-                    .iter(),
-            );
+            let instance_entities = scene_manager.iter_instance_entities(**instance);
+            let entities: Vec<_> = std::iter::once(entity) // add the root entity to make possible to modify once scene is loaded
+                .chain(instance_entities)
+                .filter_map(|e| world.get_entity(e))
+                // storing result of filtering allows us to handle lifetime problems and
+                // workaround `Box<dyn Iterator<Item = EntityRef>>` in function type declaration
+                .collect();
+            setup.0(&mut commands, &entities);
             commands.entity(entity).remove::<SetupRequired>();
         }
     }

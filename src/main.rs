@@ -102,7 +102,7 @@ fn setup_env(
         .insert(scene_setup::SetupRequired::new(
             move |commands, entities| {
                 let collider_parts: Vec<_> = entities
-                    .clone()
+                    .iter()
                     .filter(|entity| entity.contains::<Handle<Mesh>>())
                     .map(|entity| entity.id())
                     .collect();
