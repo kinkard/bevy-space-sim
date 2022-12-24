@@ -94,6 +94,8 @@ fn spawn_drone(
 
                     let collider_parts: Vec<_> = entities
                         .iter()
+                        // Skip entities with `Handle<Mesh>` to operate only with GLTF's Nodes
+                        .filter(|e| !e.contains::<Handle<Mesh>>())
                         .filter(
                             |e| matches!(e.get::<Name>(), Some(name) if name.starts_with("body")),
                         )
@@ -103,6 +105,8 @@ fn spawn_drone(
                     // Assign guns to entities named "barrel"
                     let guns: Vec<_> = entities
                         .iter()
+                        // Skip entities with `Handle<Mesh>` to operate only with GLTF's Nodes
+                        .filter(|e| !e.contains::<Handle<Mesh>>())
                         .filter(
                             |e| matches!(e.get::<Name>(), Some(name) if name.starts_with("barrel")),
                         )

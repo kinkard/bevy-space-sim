@@ -74,6 +74,8 @@ fn spawn_turret(
 
                 entities
                     .iter()
+                    // Skip entities with `Handle<Mesh>` as we should operate only with GLTF's Nodes
+                    .filter(|e| !e.contains::<Handle<Mesh>>())
                     // We are interested only in entities that have Name component
                     .filter_map(|e| e.get::<Name>().map(|name| (e.id(), name)))
                     .for_each(|(entity, name)| {
