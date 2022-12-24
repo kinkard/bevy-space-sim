@@ -2,7 +2,7 @@ use bevy::{prelude::*, scene::SceneInstance};
 use bevy_rapier3d::prelude::*;
 use std::ops::{Index, IndexMut};
 
-use crate::{collider_setup, gun, player, projectile, scene_setup, weapon};
+use crate::{aiming, collider_setup, gun, projectile, scene_setup, weapon};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Drone {
@@ -28,10 +28,6 @@ struct DroneBundle {
 
 #[derive(Component)]
 struct Guns(Vec<Entity>);
-
-/// Drone's locked target.
-#[derive(Component, Clone, Default)]
-struct LockedTarget(Option<Entity>);
 
 /// Angular velocity limit
 #[derive(Component, Clone, Default)]
@@ -85,7 +81,7 @@ fn spawn_drone(
         commands
             .spawn(resources[ev.drone].clone())
             .insert(SpatialBundle::from_transform(ev.transform))
-            .insert(LockedTarget::default())
+            .insert(aiming::GunLayer::default())
             .insert(RigidBody::Dynamic)
             .insert(Velocity::default())
             .insert(ExternalForce {
@@ -129,55 +125,21 @@ fn spawn_drone(
     }
 }
 
-fn select_target(
-    target: Query<Entity, With<player::LockedTarget>>,
-    mut drones: Query<(Entity, &mut LockedTarget)>,
-) {
-    let Some(target) = target.iter().next() else {
-        return; // nothing to do
-    };
-
-    for (drone, mut locked_target) in drones.iter_mut() {
-        // avoid selecting self
-        if drone != target {
-            locked_target.0 = Some(target);
-        }
+fn orientation(mut drones: Query<(&aiming::GunLayer, &RotationSpeed, &mut Velocity)>) {
+    for (gun_layer, rotation_speed, mut velocity) in drones.iter_mut() {
+        velocity.angvel = (gun_layer.axis * gun_layer.angle).clamp_length_max(rotation_speed.0);
     }
 }
 
-fn gun_layer(
-    mut drones: Query<(
-        &GlobalTransform,
-        &LockedTarget,
-        &Guns,
-        &RotationSpeed,
-        &mut Velocity,
-    )>,
-    targets: Query<&GlobalTransform>,
-    mut triggers: Query<&mut gun::Trigger>,
-) {
-    for (drone, target, guns, rotation_speed, mut velocity) in drones.iter_mut() {
-        let Some(target) = target.0.and_then(|e| targets.get(e).ok()) else {
-            // Target is not selected or not exists anymore - nothing to do.
-            velocity.angvel = Vec3::ZERO;
-            continue;
-        };
-
-        let to_target = target.translation() - drone.translation();
-        let distance = to_target.length();
-        let rotation = Quat::from_rotation_arc(drone.forward(), to_target * distance.recip());
-
-        let (axis, angle) = rotation.to_axis_angle();
-
-        velocity.angvel = (axis * angle).clamp_length_max(rotation_speed.0);
-
-        let threshold = if distance > 100.0 {
+fn fire_control(drones: Query<(&aiming::GunLayer, &Guns)>, mut triggers: Query<&mut gun::Trigger>) {
+    for (gun_layer, guns) in drones.iter() {
+        let threshold = if gun_layer.distance > 100.0 {
             // let's say for simplicity that target is 10m size
-            10.0 / distance
+            10.0 / gun_layer.distance
         } else {
             0.3
         };
-        if angle < threshold {
+        if gun_layer.distance != 0.0 && gun_layer.angle < threshold {
             for gun in guns.0.iter() {
                 if let Ok(mut gun_trigger) = triggers.get_mut(*gun) {
                     gun_trigger.pull();
@@ -193,7 +155,7 @@ impl Plugin for DronePlugin {
         app.add_startup_system(load_drone_resources)
             .add_event::<SpawnDroneEvent>()
             .add_system(spawn_drone)
-            .add_system(select_target)
-            .add_system(gun_layer);
+            .add_system(orientation.after(aiming::gun_layer))
+            .add_system(fire_control.after(orientation));
     }
 }

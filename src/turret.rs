@@ -1,8 +1,7 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::*;
 
 use crate::{
-    collider_setup, gun, player, projectile::HitPoints, scene_setup::SetupRequired, weapon,
+    aiming, collider_setup, gun, projectile::HitPoints, scene_setup::SetupRequired, weapon,
 };
 
 /// Emit this event to spawn a turret with specified parameters
@@ -10,23 +9,6 @@ pub struct SpawnTurretEvent {
     pub transform: Transform,
     /// Rotation speed in rad/s
     pub rotation_speed: f32,
-}
-
-/// Turret's locked target.
-#[derive(Component, Default)]
-struct LockedTarget(Option<Entity>);
-
-/// Turret's white list that should be never targeted
-#[derive(Component, Default)]
-struct IgnoreTargets(Vec<Entity>);
-
-/// Annotates an entity to be used for building direction vector to the specified target.
-/// Turret orientation system rotates joints (entities with `Joint` component) to
-/// orient entity with `GunLayer` component towards specified target if provided.
-#[derive(Component, Default)]
-struct GunLayer {
-    axis: Vec3,
-    angle: f32,
 }
 
 /// Links turret main entity with joints that will be used for turret orientation.
@@ -46,16 +28,14 @@ struct Joint {
 
 #[derive(Bundle)]
 struct TurretBundle {
-    target: LockedTarget,
-    gun_layer: GunLayer,
+    gun_layer: aiming::GunLayer,
     joints: TurretJoints,
 }
 
 impl TurretBundle {
     fn new(joints: Vec<Entity>) -> Self {
         Self {
-            target: LockedTarget::default(),
-            gun_layer: GunLayer::default(),
+            gun_layer: aiming::GunLayer::default(),
             joints: TurretJoints(joints),
         }
     }
@@ -67,6 +47,9 @@ struct TurretScene(Handle<Scene>);
 fn load_turret_resources(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(TurretScene(assets.load("models/turret.glb#Scene0")));
 }
+
+#[derive(Component)]
+struct TurretBody;
 
 fn spawn_turret(
     mut commands: Commands,
@@ -111,13 +94,12 @@ fn spawn_turret(
                         }
                     });
 
-                let mut ignore_targets = vec![];
                 if let Some(body) = body {
                     commands
                         .entity(body)
+                        .insert(TurretBody)
                         .insert(HitPoints::new(200))
                         .insert(collider_setup::ConvexHull::new(collider_parts));
-                    ignore_targets.push(body);
                 };
 
                 if let Some(head) = head {
@@ -125,78 +107,14 @@ fn spawn_turret(
                         .entity(head)
                         .insert(TurretBundle::new(joints))
                         .insert(weapon::FlakCannon::new(barrels, 5.0));
-
-                    if !ignore_targets.is_empty() {
-                        commands.entity(head).insert(IgnoreTargets(ignore_targets));
-                    }
                 }
             }))
             .insert(Name::new("Turret"));
     }
 }
 
-fn select_target(
-    target: Query<Entity, With<player::LockedTarget>>,
-    mut turrets: Query<(&mut LockedTarget, Option<&IgnoreTargets>)>,
-) {
-    let Some(target) = target.iter().next() else {
-        return; // nothing to do
-    };
-
-    for (mut turret, ignore) in turrets.iter_mut() {
-        if !matches!(ignore, Some(ignore) if ignore.0.contains(&target)) {
-            turret.0 = Some(target);
-        }
-    }
-}
-
-fn gun_layer(
-    mut turrets: Query<(
-        &GlobalTransform,
-        &LockedTarget,
-        &mut GunLayer,
-        &mut gun::Trigger,
-    )>,
-    targets: Query<(&GlobalTransform, Option<&Velocity>)>,
-) {
-    for (turret, target, mut gun_layer, mut gun_trigger) in turrets.iter_mut() {
-        let Some((target, velocity)) = target.0.and_then(|e| targets.get(e).ok()) else {
-            // Target is not selected or not exists anymore - nothing to do.
-            // TODO: implement turret parking in a default position after some delay
-            gun_layer.angle = 0.0;
-            continue;
-        };
-
-        // Adjust target position to compensate its velocity if any
-        let target_pos = if let Some(velocity) = velocity {
-            let projectile_speed = 100.0;
-            let target_pos = target.translation();
-            let time = target_pos.distance(turret.translation()) / projectile_speed;
-            target_pos + velocity.linvel * time
-        } else {
-            target.translation()
-        };
-
-        let to_target = target_pos - turret.translation();
-        let distance = to_target.length();
-        // Required rotation to orient turret towards `target_pos`
-        (gun_layer.axis, gun_layer.angle) =
-            Quat::from_rotation_arc(turret.forward(), to_target * distance.recip()).to_axis_angle();
-
-        let threshold = if distance > 100.0 {
-            // let's say for simplicity that target is 10m size
-            10.0 / distance
-        } else {
-            0.3
-        };
-        if gun_layer.angle < threshold {
-            gun_trigger.pull();
-        }
-    }
-}
-
 fn orientation(
-    turrets: Query<(&GunLayer, &TurretJoints)>,
+    turrets: Query<(&aiming::GunLayer, &TurretJoints)>,
     transforms: Query<&GlobalTransform, With<Children>>,
     time: Res<Time>,
     mut joints: Query<(&mut Transform, &Parent, &Joint)>,
@@ -220,14 +138,28 @@ fn orientation(
     }
 }
 
+fn fire_control(mut turrets: Query<(&aiming::GunLayer, &mut gun::Trigger)>) {
+    for (gun_layer, mut gun_trigger) in turrets.iter_mut() {
+        let threshold = if gun_layer.distance > 100.0 {
+            // let's say for simplicity that target is 10m size
+            10.0 / gun_layer.distance
+        } else {
+            0.3
+        };
+        if gun_layer.distance != 0.0 && gun_layer.angle < threshold {
+            gun_trigger.pull();
+        }
+    }
+}
+
 pub struct TurretPlugin;
 impl Plugin for TurretPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(load_turret_resources)
             .add_event::<SpawnTurretEvent>()
             .add_system(spawn_turret)
-            .add_system(select_target)
-            .add_system(gun_layer)
-            .add_system(orientation.after(gun_layer));
+            //.add_system(orientation.after(targeting::gun_layer))
+            .add_system(orientation.after(aiming::gun_layer))
+            .add_system(fire_control.after(orientation));
     }
 }

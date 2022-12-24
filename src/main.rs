@@ -5,6 +5,7 @@ use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use rand::Rng;
 
+pub mod aiming;
 pub mod collider_setup;
 pub mod drone;
 pub mod gun;
@@ -29,6 +30,7 @@ fn main() {
         .add_plugin(collider_setup::ColliderSetupPlugin)
         .add_plugin(skybox::SkyboxPlugin)
         .add_plugin(projectile::ProjectilePlugin)
+        .add_plugin(aiming::AimingPlugin)
         .add_plugin(gun::GunPlugin)
         .add_plugin(player::PlayerPlugin)
         .add_plugin(turret::TurretPlugin)
