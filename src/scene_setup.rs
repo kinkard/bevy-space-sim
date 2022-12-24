@@ -2,6 +2,7 @@
 use bevy::{asset::LoadState, ecs::world::EntityRef, prelude::*, scene::SceneInstance};
 
 /// Component to attach setup function that will be invoked once scene is loaded.
+/// Provided callback will receive GLTF Nodes.
 ///
 /// Example:
 ///
@@ -11,10 +12,9 @@ use bevy::{asset::LoadState, ecs::world::EntityRef, prelude::*, scene::SceneInst
 ///         scene: asset_server.load("my_scene.glb#Scene0"),
 ///         ..default()
 ///     })
-///     .insert(SetupRequired::new(|commands, entities| {
-///         entities
+///     .insert(SetupRequired::new(|commands, nodes| {
+///         nodes
 ///             .iter()
-///             .filter(|e| !e.contains::<Handle<Mesh>>()) // Skip GLTF Mesh entities
 ///             .filter_map(|e| e.get::<Name>().map(|name| (e.id(), name)))
 ///             .for_each(|(entity, name)| {
 ///                 if name.starts_with("Muzzle") {
@@ -49,6 +49,8 @@ fn setup_scene(
             let entities: Vec<_> = std::iter::once(entity) // add the root entity to make possible to modify once scene is loaded
                 .chain(instance_entities)
                 .filter_map(|e| world.get_entity(e))
+                // Skip entities with `Handle<Mesh>` to operate only with GLTF's Nodes
+                .filter(|e| !e.contains::<Handle<Mesh>>())
                 // storing result of filtering allows us to handle lifetime problems and
                 // workaround `Box<dyn Iterator<Item = EntityRef>>` in function type declaration
                 .collect();
