@@ -166,7 +166,7 @@ impl Rocket {
             }),
             lifetime: projectile::Lifetime(30.0),
             explosion: projectile::ExplosionEffect::Big,
-            damage: projectile::Damage(19),
+            damage: projectile::Damage(99),
             light: PointLight {
                 intensity: 1500.0,
                 radius,
