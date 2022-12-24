@@ -158,6 +158,6 @@ impl Plugin for TurretPlugin {
             .add_system(spawn_turret)
             //.add_system(orientation.after(targeting::gun_layer))
             .add_system(orientation.after(aiming::gun_layer))
-            .add_system(fire_control.after(orientation));
+            .add_system(fire_control);
     }
 }

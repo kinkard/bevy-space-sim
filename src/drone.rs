@@ -152,6 +152,6 @@ impl Plugin for DronePlugin {
             .add_event::<SpawnDroneEvent>()
             .add_system(spawn_drone)
             .add_system(orientation.after(aiming::gun_layer))
-            .add_system(fire_control.after(orientation));
+            .add_system(fire_control);
     }
 }
