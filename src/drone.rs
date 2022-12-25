@@ -23,7 +23,7 @@ struct DroneBundle {
     scene: Handle<Scene>,
     name: Name,
     hitpoints: projectile::HitPoints,
-    rotation_speed: RotationSpeed,
+    rotation_speed: MaxRotationSpeed,
 }
 
 #[derive(Component)]
@@ -31,7 +31,7 @@ struct Guns(Vec<Entity>);
 
 /// Angular velocity limit
 #[derive(Component, Clone, Default)]
-struct RotationSpeed(f32);
+struct MaxRotationSpeed(f32);
 
 #[derive(Resource, Default)]
 struct DroneResources([DroneBundle; 2]);
@@ -61,13 +61,13 @@ fn load_drone_resources(mut commands: Commands, assets: Res<AssetServer>) {
         scene: assets.load("models/praetor.glb#Scene0"),
         name: Name::new("Drone::Praetor"),
         hitpoints: projectile::HitPoints::new(300),
-        rotation_speed: RotationSpeed(60_f32.to_radians()),
+        rotation_speed: MaxRotationSpeed(60_f32.to_radians()),
     };
     resources[Drone::Infiltrator] = DroneBundle {
         scene: assets.load("models/infiltrator.glb#Scene0"),
         name: Name::new("Drone::Infiltrator"),
         hitpoints: projectile::HitPoints::new(200),
-        rotation_speed: RotationSpeed(90_f32.to_radians()),
+        rotation_speed: MaxRotationSpeed(90_f32.to_radians()),
     };
     commands.insert_resource(resources);
 }
@@ -125,9 +125,10 @@ fn spawn_drone(
     }
 }
 
-fn orientation(mut drones: Query<(&aiming::GunLayer, &RotationSpeed, &mut Velocity)>) {
-    for (gun_layer, rotation_speed, mut velocity) in drones.iter_mut() {
-        velocity.angvel = (gun_layer.axis * gun_layer.angle).clamp_length_max(rotation_speed.0);
+fn orientation(mut drones: Query<(&aiming::GunLayer, &MaxRotationSpeed, &mut Velocity)>) {
+    for (gun_layer, max_rotation_speed, mut velocity) in drones.iter_mut() {
+        let speed = (gun_layer.angle * 100.0).clamp(-max_rotation_speed.0, max_rotation_speed.0);
+        velocity.angvel = gun_layer.axis * speed;
     }
 }
 
