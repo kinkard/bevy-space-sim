@@ -159,7 +159,7 @@ fn setup(
     // environment map, use an appropriate colour and brightness to match
     commands.insert_resource(AmbientLight {
         color: Color::rgb_u8(210, 220, 240),
-        brightness: 0.1,
+        brightness: 0.3,
     });
 }
 

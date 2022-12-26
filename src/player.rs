@@ -154,11 +154,11 @@ fn move_player(
     let mut rotation = Quat::IDENTITY;
     if keys.pressed(KeyCode::Q) {
         // rotate counter clockwise
-        rotation *= Quat::from_rotation_z(camepa_step * 10.0_f32.to_radians());
+        rotation *= Quat::from_rotation_z(std::f32::consts::TAU * time.delta_seconds());
     }
     if keys.pressed(KeyCode::E) {
         // rotate counter clockwise
-        rotation *= Quat::from_rotation_z(camepa_step * -10.0_f32.to_radians());
+        rotation *= Quat::from_rotation_z(-std::f32::consts::TAU * time.delta_seconds());
     }
 
     // Enable mouse guidance if Space is pressed

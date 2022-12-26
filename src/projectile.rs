@@ -225,7 +225,7 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
                     ..default()
                 }
                 .init(PositionSphereModifier {
-                    radius: 0.1,
+                    radius: 0.2,
                     speed: 5.0.into(),
                     dimension: ShapeDimension::Surface,
                     ..default()
@@ -236,7 +236,7 @@ fn setup(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
                 // })
                 .render(BillboardModifier)
                 .render(SizeOverLifetimeModifier {
-                    gradient: Gradient::constant(Vec2::splat(0.05)),
+                    gradient: Gradient::constant(Vec2::splat(0.1)),
                 })
                 .render(ColorOverLifetimeModifier { gradient }),
             ),

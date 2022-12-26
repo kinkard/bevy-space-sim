@@ -86,7 +86,7 @@ impl Bullet {
         meshes: &mut ResMut<Assets<Mesh>>,
         materials: &mut ResMut<Assets<StandardMaterial>>,
     ) -> Self {
-        let radius = 0.02;
+        let radius = 0.1;
         Self {
             collider: Collider::capsule_y(8.0 * radius, radius),
             mesh: meshes.add(Mesh::from(shape::Capsule {
@@ -100,7 +100,7 @@ impl Bullet {
                 // exclude this material from shadows calculations
                 ..default()
             }),
-            lifetime: projectile::Lifetime(10.0),
+            lifetime: projectile::Lifetime(15.0),
             explosion: projectile::ExplosionEffect::Small,
             damage: projectile::Damage(1),
         }
