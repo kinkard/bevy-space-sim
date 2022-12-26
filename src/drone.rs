@@ -153,12 +153,8 @@ fn movement(mut drones: Query<(&aiming::GunLayer, &GlobalTransform, &mut Externa
 
 fn fire_control(drones: Query<(&aiming::GunLayer, &Guns)>, mut triggers: Query<&mut gun::Trigger>) {
     for (gun_layer, guns) in drones.iter() {
-        let threshold = if gun_layer.distance > 100.0 {
-            // let's say for simplicity that target is 10m size
-            10.0 / gun_layer.distance
-        } else {
-            0.3
-        };
+        // let's say for simplicity that target is 7m size
+        let threshold = (7.0 / gun_layer.distance).max(0.1);
         let range = 1500.0;
 
         if gun_layer.distance != 0.0 && gun_layer.angle < threshold && gun_layer.distance < range {

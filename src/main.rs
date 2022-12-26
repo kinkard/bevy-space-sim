@@ -99,9 +99,11 @@ fn setup_env(
             ..default()
         })
         .insert(Restitution::coefficient(1.0))
+        .insert(RigidBody::Dynamic)
         .insert(TransformBundle::from(Transform {
             translation: Vec3::new(0.0, 100.0, -300.0),
             rotation: Quat::from_rotation_y(std::f32::consts::PI),
+            scale: Vec3::splat(2.0),
             ..default()
         }))
         .insert(scene_setup::SetupRequired::new(
@@ -143,23 +145,19 @@ fn setup_env(
         .insert(projectile::HitPoints::new(2000))
         .insert(Name::new("Artillery Platform"));
 
-    ev_spawn_drone.send(drone::SpawnDroneEvent {
-        drone: drone::Drone::Infiltrator,
-        transform: Transform {
-            translation: Vec3::new(-200.0, 10.0, 50.0),
-            rotation: Quat::from_rotation_y(std::f32::consts::PI),
-            ..default()
-        },
-    });
-
-    ev_spawn_drone.send(drone::SpawnDroneEvent {
-        drone: drone::Drone::Praetor,
-        transform: Transform {
-            translation: Vec3::new(200.0, 10.0, 30.0),
-            rotation: Quat::from_rotation_y(std::f32::consts::PI),
-            ..default()
-        },
-    });
+    for (drone, position) in [
+        (drone::Drone::Infiltrator, Vec3::new(-1600.0, 10.0, 0.0)),
+        (drone::Drone::Infiltrator, Vec3::new(-1500.0, 10.0, 50.0)),
+        (drone::Drone::Infiltrator, Vec3::new(-1600.0, 10.0, 100.0)),
+        (drone::Drone::Praetor, Vec3::new(1600.0, 10.0, 100.0)),
+        (drone::Drone::Praetor, Vec3::new(1500.0, 10.0, 50.0)),
+        (drone::Drone::Praetor, Vec3::new(1600.0, 10.0, 0.0)),
+    ] {
+        ev_spawn_drone.send(drone::SpawnDroneEvent {
+            drone,
+            transform: Transform::from_translation(position),
+        });
+    }
 
     let pos = 25.0;
     for (x, z) in [(-pos, -pos), (pos, -pos), (-pos, pos), (pos, pos)] {

@@ -106,7 +106,7 @@ impl Bullet {
         }
     }
 
-    fn spawn(&self, commands: &mut Commands, position: Vec3, direction: Vec3, speed: f32) {
+    fn spawn(&self, commands: &mut Commands, position: Vec3, direction: Vec3, velocity: Vec3) {
         commands.spawn(projectile::ProjectileBundle {
             mesh_material: PbrBundle {
                 mesh: self.mesh.clone(),
@@ -121,7 +121,7 @@ impl Bullet {
             },
             collider: self.collider.clone(),
             velocity: Velocity {
-                linvel: direction * speed,
+                linvel: velocity,
                 ..default()
             },
             lifetime: self.lifetime.clone(),
@@ -176,7 +176,7 @@ impl Rocket {
         }
     }
 
-    fn spawn(&self, commands: &mut Commands, position: Vec3, direction: Vec3, speed: f32) {
+    fn spawn(&self, commands: &mut Commands, position: Vec3, direction: Vec3, velocity: Vec3) {
         commands
             .spawn(projectile::ProjectileBundle {
                 mesh_material: PbrBundle {
@@ -192,7 +192,7 @@ impl Rocket {
                 },
                 collider: self.collider.clone(),
                 velocity: Velocity {
-                    linvel: direction * speed,
+                    linvel: velocity,
                     ..default()
                 },
                 lifetime: self.lifetime.clone(),
@@ -220,26 +220,34 @@ fn setup_projectile(
 
 fn single_barrel(
     mut commands: Commands,
-    guns: Query<(&GlobalTransform, &Gun), Without<MultiBarrel>>,
+    guns: Query<(&GlobalTransform, &Gun, Entity), Without<MultiBarrel>>,
     bullet: Res<Bullet>,
     rocket: Res<Rocket>,
+    velocity_query: Query<&Velocity>,
+    parent_query: Query<&Parent>,
 ) {
-    for (barrel, gun) in guns.iter() {
+    for (barrel, gun, entity) in guns.iter() {
         if gun.rate_of_fire_timer.just_finished() {
+            let direction = barrel.forward();
+
+            // resolve own velocity from parent if any
+            let mut gun_velocity = Vec3::ZERO;
+            for parent in parent_query.iter_ancestors(entity) {
+                if let Ok(velocity) = velocity_query.get(parent) {
+                    gun_velocity = velocity.linvel;
+                    break;
+                }
+            }
+            let velocity = direction * gun.speed + gun_velocity;
+
             // todo: move this code somewhere and make it possible to add more different projectiles
             match gun.projectile {
-                Projectile::Bullet => bullet.spawn(
-                    &mut commands,
-                    barrel.translation(),
-                    barrel.forward(),
-                    gun.speed,
-                ),
-                Projectile::Rocket => rocket.spawn(
-                    &mut commands,
-                    barrel.translation(),
-                    barrel.forward(),
-                    gun.speed,
-                ),
+                Projectile::Bullet => {
+                    bullet.spawn(&mut commands, barrel.translation(), direction, velocity)
+                }
+                Projectile::Rocket => {
+                    rocket.spawn(&mut commands, barrel.translation(), direction, velocity)
+                }
             };
         }
     }
@@ -255,11 +263,12 @@ fn multi_barrel(
         if gun.rate_of_fire_timer.just_finished() {
             for barrel in barrels.0.iter() {
                 let barrel = barrel_transforms.get(*barrel).unwrap();
+                let direction = barrel.forward();
                 projectile.spawn(
                     &mut commands,
                     barrel.translation(),
-                    barrel.forward(),
-                    gun.speed,
+                    direction,
+                    direction * gun.speed,
                 );
             }
         }
