@@ -10,6 +10,12 @@ pub struct GunLayer {
     pub distance: f32,
 }
 
+#[derive(Component, Copy, Clone, PartialEq, Eq)]
+pub enum Fraction {
+    Drones,
+    Turrets,
+}
+
 fn aiming_vector(origin: Vec3, mut target_pos: Vec3, velocity: Option<&Velocity>) -> Vec3 {
     // Adjust target position to compensate its velocity if any
     if let Some(velocity) = velocity {
@@ -22,27 +28,37 @@ fn aiming_vector(origin: Vec3, mut target_pos: Vec3, velocity: Option<&Velocity>
 }
 
 fn select_target(
-    mut query: Query<(&GlobalTransform, &mut GunLayer)>,
+    mut query: Query<(Option<&Fraction>, &GlobalTransform, &mut GunLayer)>,
     targets: Query<
-        (Entity, &GlobalTransform, Option<&Velocity>),
+        (
+            Entity,
+            &GlobalTransform,
+            Option<&Fraction>,
+            Option<&Velocity>,
+        ),
         (With<Collider>, Without<Sensor>),
     >,
 ) {
-    for (transform, mut gun_layer) in query.iter_mut() {
+    for (own_fraction, transform, mut gun_layer) in query.iter_mut() {
         if !matches!(gun_layer.target, Some(target) if targets.contains(target)) {
-            const DEFAULT_VISIBILITY_SQARED_RANGE: f32 = 1000.0 * 1000.0;
             let forward_direction = transform.forward();
             let origin = transform.translation();
 
             gun_layer.target = targets
                 .iter()
-                .map(|(entity, transform, velocity)| {
+                .filter(|(_, _, fraction, _)| {
+                    // Don't select targets with the same fraction
+                    !matches!((own_fraction, fraction), (Some(lha), Some(rha)) if *lha == **rha)
+                })
+                .map(|(entity, transform, _, velocity)| {
                     let to_target = aiming_vector(origin, transform.translation(), velocity);
                     (entity, to_target, to_target.length_squared())
                 })
                 // todo: consider spatial optimizations to speed up lookup
                 .filter(|(_, _, sqrared_distance)| {
-                    0.0 < *sqrared_distance && *sqrared_distance < DEFAULT_VISIBILITY_SQARED_RANGE
+                    // todo: Fix visibility distance once drones become smart enough not to fly away without a target
+                    // const DEFAULT_VISIBILITY_SQARED_RANGE: f32 = 1000.0 * 1000.0;
+                    0.0 < *sqrared_distance // && *sqrared_distance < DEFAULT_VISIBILITY_SQARED_RANGE
                 })
                 // find closest target to `forward_direction` to reduce required rotations
                 // convert to integer with 2 digits precision to workaround that f32 is not Ord

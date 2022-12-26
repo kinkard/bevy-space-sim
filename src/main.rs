@@ -146,7 +146,7 @@ fn setup_env(
     ev_spawn_drone.send(drone::SpawnDroneEvent {
         drone: drone::Drone::Infiltrator,
         transform: Transform {
-            translation: Vec3::new(-10.0, 10.0, 0.0),
+            translation: Vec3::new(-200.0, 10.0, 50.0),
             rotation: Quat::from_rotation_y(std::f32::consts::PI),
             ..default()
         },
@@ -155,22 +155,17 @@ fn setup_env(
     ev_spawn_drone.send(drone::SpawnDroneEvent {
         drone: drone::Drone::Praetor,
         transform: Transform {
-            translation: Vec3::new(10.0, 10.0, 0.0),
+            translation: Vec3::new(200.0, 10.0, 30.0),
             rotation: Quat::from_rotation_y(std::f32::consts::PI),
             ..default()
         },
     });
 
     let pos = 25.0;
-    for (x, z, speed) in [
-        (-pos, -pos, 30.0_f32),
-        (pos, -pos, 90.0_f32),
-        (-pos, pos, 180.0_f32),
-        (pos, pos, 240.0_f32),
-    ] {
+    for (x, z) in [(-pos, -pos), (pos, -pos), (-pos, pos), (pos, pos)] {
         ev_spawn_turret.send(turret::SpawnTurretEvent {
             transform: Transform::from_translation(Vec3::new(x, -3.0, z)),
-            rotation_speed: speed.to_radians(),
+            rotation_speed: 120_f32.to_radians(),
         });
     }
 

@@ -82,6 +82,7 @@ fn spawn_drone(
             .spawn(resources[ev.drone].clone())
             .insert(SpatialBundle::from_transform(ev.transform))
             .insert(aiming::GunLayer::default())
+            .insert(aiming::Fraction::Drones)
             .insert(RigidBody::Dynamic)
             .insert(Velocity::default())
             .insert(ExternalForce {
@@ -132,6 +133,24 @@ fn orientation(mut drones: Query<(&aiming::GunLayer, &MaxRotationSpeed, &mut Vel
     }
 }
 
+fn movement(mut drones: Query<(&aiming::GunLayer, &GlobalTransform, &mut ExternalForce)>) {
+    for (gun_layer, transform, mut force) in drones.iter_mut() {
+        // no target - stop
+        if gun_layer.distance == 0.0 {
+            force.force = Vec3::ZERO;
+        }
+
+        const THRUST: f32 = 3000.0;
+
+        // if distance too big and we oriented towards our target - move forward
+        if gun_layer.distance > 100.0 && gun_layer.angle <= std::f32::consts::FRAC_PI_4 {
+            force.force = transform.forward() * THRUST;
+        } else {
+            force.force = Vec3::ZERO;
+        }
+    }
+}
+
 fn fire_control(drones: Query<(&aiming::GunLayer, &Guns)>, mut triggers: Query<&mut gun::Trigger>) {
     for (gun_layer, guns) in drones.iter() {
         let threshold = if gun_layer.distance > 100.0 {
@@ -140,7 +159,9 @@ fn fire_control(drones: Query<(&aiming::GunLayer, &Guns)>, mut triggers: Query<&
         } else {
             0.3
         };
-        if gun_layer.distance != 0.0 && gun_layer.angle < threshold {
+        let range = 1500.0;
+
+        if gun_layer.distance != 0.0 && gun_layer.angle < threshold && gun_layer.distance < range {
             for gun in guns.0.iter() {
                 if let Ok(mut gun_trigger) = triggers.get_mut(*gun) {
                     gun_trigger.pull();
@@ -157,6 +178,7 @@ impl Plugin for DronePlugin {
             .add_event::<SpawnDroneEvent>()
             .add_system(spawn_drone)
             .add_system(orientation.after(aiming::gun_layer))
+            .add_system(movement.after(aiming::gun_layer))
             .add_system(fire_control);
     }
 }

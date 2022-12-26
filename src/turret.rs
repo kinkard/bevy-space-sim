@@ -99,14 +99,18 @@ fn spawn_turret(
                         .entity(body)
                         .insert(TurretBody)
                         .insert(HitPoints::new(200))
-                        .insert(collider_setup::ConvexHull::new(collider_parts));
+                        .insert(collider_setup::ConvexHull::new(collider_parts))
+                        // should set fraction twice - near collider and near GunLayer
+                        .insert(aiming::Fraction::Turrets);
                 };
 
                 if let Some(head) = head {
                     commands
                         .entity(head)
                         .insert(TurretBundle::new(joints))
-                        .insert(weapon::FlakCannon::new(barrels, 5.0));
+                        .insert(weapon::FlakCannon::new(barrels, 5.0))
+                        // should set fraction twice - near collider and near GunLayer
+                        .insert(aiming::Fraction::Turrets);
                 }
             }))
             .insert(Name::new("Turret"));
