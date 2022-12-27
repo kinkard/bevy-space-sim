@@ -14,7 +14,7 @@ impl FlakCannon {
     pub fn new(barrels: Vec<Entity>, rate_of_fire: f32) -> Self {
         Self {
             trigger: gun::Trigger::default(),
-            gun: gun::Gun::new(rate_of_fire, gun::Projectile::Bullet, 100.0),
+            gun: gun::Gun::new(rate_of_fire, gun::Projectile::Bullet, 200.0),
             barrels: gun::MultiBarrel::new(barrels),
         }
     }
@@ -30,7 +30,7 @@ impl MachineGun {
     pub fn new(rate_of_fire: f32) -> Self {
         Self {
             trigger: gun::Trigger::default(),
-            gun: gun::Gun::new(rate_of_fire, gun::Projectile::Bullet, 100.0),
+            gun: gun::Gun::new(rate_of_fire, gun::Projectile::Bullet, 200.0),
         }
     }
 }

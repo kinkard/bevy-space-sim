@@ -146,7 +146,7 @@ fn fire_control(mut turrets: Query<(&aiming::GunLayer, &mut gun::Trigger)>) {
     for (gun_layer, mut gun_trigger) in turrets.iter_mut() {
         // let's say for simplicity that target is 7m size
         let threshold = (7.0 / gun_layer.distance).max(0.1);
-        let range = 1500.0;
+        let range = 3000.0;
         if gun_layer.distance != 0.0 && gun_layer.angle < threshold && gun_layer.distance < range {
             gun_trigger.pull();
         }

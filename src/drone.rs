@@ -155,7 +155,7 @@ fn fire_control(drones: Query<(&aiming::GunLayer, &Guns)>, mut triggers: Query<&
     for (gun_layer, guns) in drones.iter() {
         // let's say for simplicity that target is 7m size
         let threshold = (7.0 / gun_layer.distance).max(0.1);
-        let range = 1500.0;
+        let range = 3000.0;
 
         if gun_layer.distance != 0.0 && gun_layer.angle < threshold && gun_layer.distance < range {
             for gun in guns.0.iter() {

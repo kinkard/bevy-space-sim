@@ -18,7 +18,7 @@ pub enum Fraction {
 
 fn aiming_vector(origin: Vec3, target_pos: Vec3, relative_vel: Vec3) -> Vec3 {
     // todo: get from parameter
-    let projectile_speed = 100.0;
+    let projectile_speed = 200.0;
 
     let to_target = target_pos - origin;
 
